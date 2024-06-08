@@ -31,6 +31,11 @@ const SearchResults = forwardRef(({ results, isFormFocused }, ref) => {
         case 'ArrowRight':
           setSelectedIndex((prevIndex) => Math.min(prevIndex + 1, results.length - 1));
           break;
+        case 'Enter':
+          if (itemRefs.current[selectedIndex]) {
+            itemRefs.current[selectedIndex].querySelector('a').click();
+          }
+          break;
         default:
           break;
       }
@@ -41,7 +46,7 @@ const SearchResults = forwardRef(({ results, isFormFocused }, ref) => {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [results.length, columns, isFormFocused]);
+  }, [results.length, columns, isFormFocused, selectedIndex]);
 
   useEffect(() => {
     if (itemRefs.current[selectedIndex]) {
