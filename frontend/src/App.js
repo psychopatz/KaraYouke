@@ -11,6 +11,7 @@ import MainMenuComponent from './components/mainMenu/MainMenuComponent';
 import NotFoundPage from './components/NotFoundPage/NotFoundPage';
 import RoomComponent from './components/room/RoomComponent';
 import CreateRoomComponent from './components/createRoom/CreateRoomComponent,';
+import JoinRoomComponent from './components/joinRoom/JoinRoomComponent';
 
 const navItems = [
   { label: 'Search', path: '/search' },
@@ -30,6 +31,7 @@ function App() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/create-room" element={<CreateRoomComponent />} />
+        <Route path="/join-room/:roomID?" element={<JoinRoomComponent />} />
         <Route path="/menu" element={<MainMenuComponent />} />
         <Route path="/profile" element={<ProfileComponent />} />
         <Route path="/search" element={<SearchComponent />} />

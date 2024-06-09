@@ -2,7 +2,7 @@ import React from 'react';
 import QRCode from 'react-qr-code';
 import PropTypes from 'prop-types';
 
-const QRCodeComponent = ({ text, size = 256 }) => {
+const QrCodeGenerator = ({ text, size = 256 }) => {
   return (
     <div style={{ width: size, height: size }}>
       <QRCode value={text} size={size} />
@@ -10,13 +10,13 @@ const QRCodeComponent = ({ text, size = 256 }) => {
   );
 };
 
-QRCodeComponent.propTypes = {
+QrCodeGenerator.propTypes = {
   text: PropTypes.string.isRequired,
   size: PropTypes.number,
 };
 
-QRCodeComponent.defaultProps = {
+QrCodeGenerator.defaultProps = {
   size: 128,
 };
 
-export default QRCodeComponent;
+export default QrCodeGenerator;
