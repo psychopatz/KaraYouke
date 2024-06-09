@@ -38,3 +38,13 @@ export const apiCreateRoom = async (roomID, name, profilePic) => {
     throw error;
   }
 };
+
+export const apiGetRoomDetails = async (roomID) => {
+  try {
+    const response = await axios.get(`${backendUrl}/rooms/${roomID}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching room details:', error);
+    throw error;
+  }
+};

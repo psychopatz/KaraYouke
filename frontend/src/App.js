@@ -8,8 +8,9 @@ import Navbar from './components/nav/Navbar';
 import LandingPage from './components/landingPage/LandingPage';
 import ProfileComponent from './components/createProfile/ProfileComponent';
 import MainMenuComponent from './components/mainMenu/MainMenuComponent';
-import CreateRoomComponent from './components/createRoom/CreateRoomComponent,';
 import NotFoundPage from './components/NotFoundPage/NotFoundPage';
+import RoomComponent from './components/room/RoomComponent';
+import CreateRoomComponent from './components/createRoom/CreateRoomComponent,';
 
 const navItems = [
   { label: 'Search', path: '/search' },
@@ -21,7 +22,7 @@ const hiddenNavPaths = ['/', '/remote', '/profile'];
 
 function App() {
   const location = useLocation();
-  const isNavHidden = hiddenNavPaths.includes(location.pathname);
+  const isNavHidden = hiddenNavPaths.includes(location.pathname) //|| location.pathname.startsWith('/room/');
 
   return (
     <Box>
@@ -33,6 +34,7 @@ function App() {
         <Route path="/profile" element={<ProfileComponent />} />
         <Route path="/search" element={<SearchComponent />} />
         <Route path="/remote" element={<RemoteControl />} />
+        <Route path="/room/:roomID" element={<RoomComponent />} /> 
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Box>

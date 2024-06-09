@@ -41,21 +41,21 @@ const theme = createTheme({
     MuiBox: {
       styleOverrides: {
         root: {
-          backgroundColor: 'transparent', // Make Box components transparent
+          // backgroundColor: 'transparent', // Make Box components transparent
         },
       },
     },
     MuiPaper: {
       styleOverrides: {
         root: {
-          backgroundColor: 'transparent', // Make Paper components transparent
+          // backgroundColor: 'transparent', // Make Paper components transparent
         },
       },
     },
     MuiCard: {
       styleOverrides: {
         root: {
-          backgroundColor: 'transparent', // Make Card components transparent
+          // backgroundColor: 'transparent', // Make Card components transparent
         },
       },
     },

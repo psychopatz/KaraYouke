@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Box, TextField, Button, Typography, Snackbar, Alert } from '@mui/material';
 import localStorageAPI from '../../API/localStorageAPI';
 import { apiCreateRoom } from '../../API/apiService';
-import QRCodeComponent from '../qr/QRCodeComponent';
+
 
 // Helper function to generate random 8-character string
 const generateRandomCode = () => {
@@ -22,7 +22,7 @@ const CreateRoomComponent = () => {
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
   const [alertSeverity, setAlertSeverity] = useState('success');
-  const backendUrl = process.env.REACT_APP_BACKEND_URL;
+
 
   const handleCreateRoom = async () => {
     if (!roomID) {
@@ -55,7 +55,6 @@ const CreateRoomComponent = () => {
       <Typography variant="h4" gutterBottom>
         Create Room
       </Typography>
-      {/* <QRCodeComponent text={`${backendUrl}/room/${roomID}`} size={256} /> */}
       <Box width="30%" textAlign="center">
         <TextField
           label="Room ID"
