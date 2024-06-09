@@ -48,3 +48,19 @@ export const apiGetRoomDetails = async (roomID) => {
     throw error;
   }
 };
+
+export const apiJoinRoom = async (roomID, name, profilePic) => {
+  try {
+    const response = await axios.post(`${backendUrl}/join_room/${roomID}`, null, {
+      params: {
+        name: name,
+        profile_pic: profilePic
+      }
+    });
+
+    return response.data;
+  } catch (error) {
+    console.error('Error joining room:', error);
+    throw error;
+  }
+};
