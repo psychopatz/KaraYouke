@@ -6,6 +6,8 @@ import RemoteControl from './components/remote/RemoteControl';
 import SearchComponent from './components/search/SearchComponent';
 import Navbar from './components/nav/Navbar';
 import LandingPage from './components/landingPage/LandingPage';
+import ProfileComponent from './components/createProfile/ProfileComponent';
+import MainMenuComponent from './components/mainMenu/MainMenuComponent';
 
 const navItems = [
   { label: 'Search', path: '/search' },
@@ -13,7 +15,7 @@ const navItems = [
 ];
 
 // Define the paths where the Navbar should be hidden
-const hiddenNavPaths = ['/', '/remote'];
+const hiddenNavPaths = ['/', '/remote', '/profile'];
 
 function App() {
   const location = useLocation();
@@ -24,6 +26,8 @@ function App() {
       {!isNavHidden && <Navbar title="Karayouke" navItems={navItems} />}
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/menu" element={<MainMenuComponent />} />
+        <Route path="/profile" element={<ProfileComponent />} />
         <Route path="/search" element={<SearchComponent />} />
         <Route path="/remote" element={<RemoteControl />} />
         {/* Add more routes here */}
