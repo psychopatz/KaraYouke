@@ -9,6 +9,7 @@ import LandingPage from './components/landingPage/LandingPage';
 import ProfileComponent from './components/createProfile/ProfileComponent';
 import MainMenuComponent from './components/mainMenu/MainMenuComponent';
 import CreateRoomComponent from './components/createRoom/CreateRoomComponent,';
+import NotFoundPage from './components/NotFoundPage/NotFoundPage';
 
 const navItems = [
   { label: 'Search', path: '/search' },
@@ -32,6 +33,7 @@ function App() {
         <Route path="/profile" element={<ProfileComponent />} />
         <Route path="/search" element={<SearchComponent />} />
         <Route path="/remote" element={<RemoteControl />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Box>
   );
