@@ -57,7 +57,7 @@ const MainMenuComponent = () => {
   useEffect(() => {
     const userdata = localStorageAPI.getItem('userdata');
     if (!userdata) {
-      navigate('/new-user');
+      navigate('/profile');
     }
     // Disable scrolling
     document.body.style.overflow = 'hidden';
