@@ -1,4 +1,4 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from youtube_search import YoutubeSearch
@@ -48,7 +48,7 @@ async def health_check():
     return {"message": "Karayouke API is up and running!"}
 
 @app.get("/search")
-async def search(query: str, max_results: int = 10, page: int = 1):
+async def search(query: str, max_results: int = Query(10, description="Maximum number of results to return"), page: int = Query(1, description="Page number")):
     results = YoutubeSearch(query, max_results=max_results).to_dict()
     start = (page - 1) * max_results
     end = start + max_results
