@@ -8,6 +8,7 @@ import Navbar from './components/nav/Navbar';
 import LandingPage from './components/landingPage/LandingPage';
 import ProfileComponent from './components/createProfile/ProfileComponent';
 import MainMenuComponent from './components/mainMenu/MainMenuComponent';
+import CreateRoomComponent from './components/createRoom/CreateRoomComponent,';
 
 const navItems = [
   { label: 'Search', path: '/search' },
@@ -26,11 +27,11 @@ function App() {
       {!isNavHidden && <Navbar title="Karayouke" navItems={navItems} />}
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/create-room" element={<CreateRoomComponent />} />
         <Route path="/menu" element={<MainMenuComponent />} />
         <Route path="/profile" element={<ProfileComponent />} />
         <Route path="/search" element={<SearchComponent />} />
         <Route path="/remote" element={<RemoteControl />} />
-        {/* Add more routes here */}
       </Routes>
     </Box>
   );

@@ -14,6 +14,7 @@ const Navbar = ({ title, navItems }) => {
   return (
     <AppBar position="static">
       <Toolbar>
+        <Box component="img" src="/websiteBanner.png" alt="Website Banner" sx={{ height: 40 }} />
         <Typography variant="h6" style={{ flexGrow: 1 }}>
           {title}
         </Typography>
