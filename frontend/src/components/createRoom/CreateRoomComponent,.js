@@ -55,7 +55,7 @@ const CreateRoomComponent = () => {
       <Typography variant="h4" gutterBottom>
         Create Room
       </Typography>
-      <QRCodeComponent text={`${backendUrl}/room/${roomID}`} size={256} />
+      {/* <QRCodeComponent text={`${backendUrl}/room/${roomID}`} size={256} /> */}
       <Box width="30%" textAlign="center">
         <TextField
           label="Room ID"

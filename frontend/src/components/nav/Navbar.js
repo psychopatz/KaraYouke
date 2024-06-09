@@ -12,10 +12,10 @@ const Navbar = ({ title, navItems }) => {
   };
 
   return (
-    <AppBar position="static">
+    <AppBar position="static" sx={{ animation: 'moveBackground 20s ease-in-out infinite' }}>
       <Toolbar>
         <Box component="img" src="/websiteBanner.png" alt="Website Banner" sx={{ height: 40 }} />
-        <Typography variant="h6" style={{ flexGrow: 1 }}>
+        <Typography variant="h6" sx={{ flexGrow: 1 }}>
           {title}
         </Typography>
         {navItems.map((item, index) => (
@@ -34,6 +34,20 @@ const Navbar = ({ title, navItems }) => {
           </Box>
         )}
       </Toolbar>
+      <style>
+        {`
+          @keyframes moveBackground {
+            0% { background-position: 0 0; }
+            50% { background-position: 100% 100%; }
+            100% { background-position: 0 0; }
+          }
+          .MuiAppBar-root {
+            background-image: url('/background.svg');
+            background-size: cover;
+            background-repeat: repeat;
+          }
+        `}
+      </style>
     </AppBar>
   );
 };
