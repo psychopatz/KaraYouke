@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Box, TextField, Button, Typography, styled } from '@mui/material';
 import axios from 'axios';
 import localStorageAPI from '../../API/localStorageAPI';
+import QrCodeScanner from '../qr/QrCodeScanner';
 
 
 const backendUrl = process.env.REACT_APP_BACKEND_URL;
@@ -48,6 +49,11 @@ const JoinRoomComponent = () => {
     }
   };
 
+  const handleScanSuccess = (decodedText, decodedResult) => {
+    // Assuming the QR code contains a URL
+    window.location.href = decodedText;
+  };
+
   return (
     <FormContainer>
       <Typography variant="h4" gutterBottom>
@@ -75,6 +81,10 @@ const JoinRoomComponent = () => {
       <Button variant="contained" color="primary" onClick={handleJoinRoom}>
         Join Room
       </Button>
+      <Typography variant="h6" gutterBottom>
+        Or Scan QR Code
+      </Typography>
+      <QrCodeScanner onScanSuccess={handleScanSuccess} />
     </FormContainer>
   );
 };
