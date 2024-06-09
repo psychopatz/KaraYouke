@@ -4,6 +4,7 @@ const LandingPage = () => {
     return ( 
         <Box>
             <Typography>Landing Page</Typography>
+            <Typography>Karayouke</Typography>
         </Box>
      );
 }

@@ -15,12 +15,12 @@ const PaginatedSearch = () => {
   const handleSearch = async (e) => {
     e.preventDefault();
     try {
-      const data = await apiSearch(query, maxResults, page);
+      const data = await apiSearch(query + " karaoke", maxResults, page);
       setResults(data.results);
       setTotalResults(data.totalResults);
-      setFocusState(false); // Switch focus state to false
+      setFocusState(false); // Switch focus state to false para di mabuang ig scroll
     } catch (error) {
-      // Handle error appropriately
+      // Handle error appropriately Gitapolan ko
     }
   };
 
