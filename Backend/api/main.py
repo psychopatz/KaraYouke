@@ -7,7 +7,7 @@ from uuid import uuid4, UUID
 from sockets import sio_app
 
 app = FastAPI()
-app.mount("/" , app=sio_app)
+# app.mount("/" , app=sio_app)
 
 app.add_middleware(
     CORSMiddleware,
