@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useParams } from "react-router-dom";
-import { RoomProvider } from "../songQueue/RoomContext"; 
+import { useParams } from "react-router-dom";
+import { RoomProvider } from "../songQueue/RoomContext";
 import DisplayPlayer from "./DisplayPlayer";
 import DisplaySongQueue from '../songQueue/DisplaySongQueue';
 import styled from '@emotion/styled';
 import { Box, Drawer, IconButton, Typography } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
+import SearchIcon from '@mui/icons-material/Search';
 import RoomHeader from './RoomHeader';
 import UserList from './UserList';
-import localStorageAPI from '../../API/localStorageAPI';
+import PaginatedSearch from '../search/PaginatedSearch';
 
 const ContentContainer = styled(Box)({
   position: 'fixed',
@@ -23,9 +24,6 @@ const DrawerContent = styled(Box)({
   padding: 16,
   textAlign: 'center',
 });
-
-
-
 
 const ScrollableBox = styled(Box)({
   display: 'flex',
@@ -46,33 +44,58 @@ const ScrollableBox = styled(Box)({
   }
 });
 
+const BottomDrawerContent = styled(Box)({
+  width: '100%',
+  padding: 16,
+  textAlign: 'center',
+  maxHeight: '45vh',  // Adjust the maxHeight as needed
+  overflow: 'vertical',
+});
+
 const PlayerComponent = () => {
   const { roomID } = useParams();
-  const [drawerOpen, setDrawerOpen] = useState(true);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [bottomDrawerOpen, setBottomDrawerOpen] = useState(false);
 
 
-  
   const toggleDrawer = () => {
     setDrawerOpen(!drawerOpen);
   };
 
+  const toggleBottomDrawer = () => {
+    setBottomDrawerOpen(!bottomDrawerOpen);
+  };
+
   return (
-    <RoomProvider currentRoom={roomID}> 
+    <RoomProvider currentRoom={roomID}>
       <ContentContainer>
         <DisplaySongQueue />
       </ContentContainer>
       <DisplayPlayer />
-      <IconButton 
-        onClick={toggleDrawer} 
-        style={{ 
-          position: 'fixed', 
-          top: '50%', 
-          left: 10, 
-          zIndex: 3, 
-          transform: 'translateY(-50%)' 
+      <IconButton
+        onClick={toggleDrawer}
+        style={{
+          position: 'fixed',
+          top: '50%',
+          left: 10,
+          zIndex: 3,
+          transform: 'translateY(-50%)'
         }}
       >
         <MenuIcon style={{ color: 'white' }} />
+      </IconButton>
+
+      <IconButton
+        onClick={toggleBottomDrawer}
+        style={{
+          position: 'fixed',
+          bottom: 10,
+          left: '50%',
+          zIndex: 3,
+          transform: 'translateX(-50%)'
+        }}
+      >
+        <SearchIcon style={{ color: 'white' }} />
       </IconButton>
 
       <Drawer
@@ -84,16 +107,33 @@ const PlayerComponent = () => {
         }}
       >
         <DrawerContent>
-            <Box p={2}>
-              <RoomHeader />
-              <Typography variant="h5" gutterBottom>
-                Users:
-              </Typography>
-              <ScrollableBox>
-                <UserList />
-              </ScrollableBox>
-            </Box>
+          <Box p={2}>
+            <RoomHeader />
+            <Typography variant="h5" gutterBottom>
+              Users:
+            </Typography>
+            <ScrollableBox>
+              <UserList />
+            </ScrollableBox>
+          </Box>
         </DrawerContent>
+      </Drawer>
+
+      <Drawer
+        anchor="bottom"
+        open={bottomDrawerOpen}
+        onClose={toggleBottomDrawer}
+        sx={{
+          maxHeight: '50vh',
+          overflow: 'auto',
+        }}
+      >
+        <BottomDrawerContent>
+          <Typography variant="h6" sx={{ mb: 2 , color: 'white'}}>
+            Search Music
+          </Typography>
+          <PaginatedSearch handleClose={toggleBottomDrawer} />
+        </BottomDrawerContent>
       </Drawer>
     </RoomProvider>
   );

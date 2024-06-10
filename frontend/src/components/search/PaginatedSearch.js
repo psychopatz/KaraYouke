@@ -2,8 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import SearchForm from './SearchForm';
 import SearchResults from './SearchResults';
 import { apiSearch } from '../../API/apiService';
+import { Box } from '@mui/material';
 
-const PaginatedSearch = () => {
+const PaginatedSearch = ({handleClose}) => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [isFormFocused, setFocusState] = useState(false);
@@ -19,6 +20,7 @@ const PaginatedSearch = () => {
       setResults(data.results);
       setTotalResults(data.totalResults);
       setFocusState(false); // Switch focus state to false para di mabuang ig scroll
+      
     } catch (error) {
       // Handle error appropriately Gitapolan ko
     }
@@ -39,7 +41,7 @@ const PaginatedSearch = () => {
   };
 
   return (
-    <div>
+    <Box>
       <SearchForm 
         query={query} 
         setQuery={setQuery} 
@@ -48,12 +50,12 @@ const PaginatedSearch = () => {
         handleSearch={handleSearch} 
         setFocusState={setFocusState} 
       />
-      <SearchResults results={results} isFormFocused={isFormFocused} ref={resultsRef} />
-      <div>
+      <SearchResults results={results} isFormFocused={isFormFocused} ref={resultsRef} handleParentClose={handleClose} />
+      {/* <div>
         <button onClick={handlePreviousPage} disabled={page === 1}>Previous</button>
         <button onClick={handleNextPage} disabled={page * maxResults >= totalResults}>Next</button>
-      </div>
-    </div>
+      </div> */}
+    </Box>
   );
 };
 

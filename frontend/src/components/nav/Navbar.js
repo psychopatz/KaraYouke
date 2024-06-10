@@ -16,7 +16,6 @@ const Navbar = ({navItems }) => {
     <AppBar position="static" sx={{ animation: 'moveBackground 20s ease-in-out infinite' }}>
       <Toolbar>
         <BannerComponent />
-        
         <Typography variant="h6" sx={{ flexGrow: 1 }}>
           
         </Typography>

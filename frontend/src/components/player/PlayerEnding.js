@@ -1,6 +1,5 @@
 import React, { useContext, useEffect, useRef } from 'react';
 import { Box, Typography, styled } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
 import ScoreGenerator from './ScoreGenerator';
 import { RoomContext } from '../songQueue/RoomContext';
 
@@ -23,8 +22,8 @@ const ContentContainer = styled(Box)({
 
 const PlayerEnding = () => {
   const audioRef = useRef(null);
-  const navigate = useNavigate();
-  const { roomData, roomID, loading, error, deleteFirstSongFromQueue, setVideoEnded, setCurrentPlaying, handleIdlePlayer } = useContext(RoomContext);
+  const { roomData, roomID, deleteFirstSongFromQueue, setVideoEnded, setCurrentPlaying, handleIdlePlayer } = useContext(RoomContext);
+  const user = { name: roomData.users[0].name, profilePicture: roomData.users[0].profile_pic }
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -61,13 +60,13 @@ const PlayerEnding = () => {
         audio.removeEventListener('ended', handleAudioEnd);
       };
     }
-  }, [navigate, roomData, roomID, deleteFirstSongFromQueue, setVideoEnded, setCurrentPlaying, handleIdlePlayer]);
+  }, [roomData, roomID, deleteFirstSongFromQueue, setVideoEnded, setCurrentPlaying, handleIdlePlayer]);
 
   return (
     <FullPageContainer>
       <ContentContainer>
         <audio ref={audioRef} src="/Sounds/videokeScore.mp3" />
-        <ScoreGenerator />
+        <ScoreGenerator user = { user} />
       </ContentContainer>
     </FullPageContainer>
   );
