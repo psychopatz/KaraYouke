@@ -1,7 +1,8 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useContext, useEffect, useRef } from 'react';
 import { Box, Typography, styled } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import ScoreGenerator from './ScoreGenerator';
+import { RoomContext } from '../songQueue/RoomContext';
 
 const FullPageContainer = styled(Box)({
   position: 'relative',
@@ -23,23 +24,43 @@ const ContentContainer = styled(Box)({
 const PlayerEnding = () => {
   const audioRef = useRef(null);
   const navigate = useNavigate();
+  const { roomData, roomID, loading, error, deleteFirstSongFromQueue, setVideoEnded, setCurrentPlaying, handleIdlePlayer } = useContext(RoomContext);
 
   useEffect(() => {
-    if (audioRef.current) {
-      const audio = audioRef.current;
+    const audio = audioRef.current;
+
+    const playAudio = () => {
       audio.play().catch(error => console.error('Error playing audio:', error));
+    };
 
-      const handleAudioEnd = () => {
-        navigate('/play');
-      };
+    const handleCanPlayThrough = () => {
+      playAudio();
+    };
 
+    const handleAudioEnd = () => {
+      deleteFirstSongFromQueue();
+      setVideoEnded(false);
+      if (roomData.song_queue.length === 0) {
+        handleIdlePlayer();
+      } else {
+        setCurrentPlaying(roomData.song_queue[0].song_id);
+      }
+      
+    };
+
+    if (audio) {
+      audio.addEventListener('canplaythrough', handleCanPlayThrough);
       audio.addEventListener('ended', handleAudioEnd);
 
+      // Play audio when component mounts
+      playAudio();
+
       return () => {
+        audio.removeEventListener('canplaythrough', handleCanPlayThrough);
         audio.removeEventListener('ended', handleAudioEnd);
       };
     }
-  }, [navigate]);
+  }, [navigate, roomData, roomID, deleteFirstSongFromQueue, setVideoEnded, setCurrentPlaying, handleIdlePlayer]);
 
   return (
     <FullPageContainer>

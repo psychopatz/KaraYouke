@@ -1,6 +1,8 @@
 import React from 'react';
 import { Box, Typography, Button } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import DisplaySongQueue from '../songQueue/DisplaySongQueue';
+import { RoomProvider } from '../songQueue/RoomContext';
 
 const LandingPage = () => {
   const navigate = useNavigate();
@@ -17,6 +19,12 @@ const LandingPage = () => {
       <Typography variant="h4" gutterBottom>
         Karayouke
       </Typography>
+
+      <RoomProvider>
+      <h1>Room Details</h1>
+      <DisplaySongQueue />
+    </RoomProvider>
+
       <Button
         variant="contained"
         color="primary"

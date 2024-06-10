@@ -2,8 +2,9 @@ import React from 'react';
 import { AppBar, Toolbar, Typography, Button, Avatar, Box } from '@mui/material';
 import { Link, useNavigate } from 'react-router-dom';
 import localStorageAPI from '../../API/localStorageAPI';
+import BannerComponent from '../banner/bannerComponent';
 
-const Navbar = ({ title, navItems }) => {
+const Navbar = ({navItems }) => {
   const navigate = useNavigate();
   const userdata = localStorageAPI.getItem('userdata');
 
@@ -14,9 +15,10 @@ const Navbar = ({ title, navItems }) => {
   return (
     <AppBar position="static" sx={{ animation: 'moveBackground 20s ease-in-out infinite' }}>
       <Toolbar>
-        <Box component="img" src="/websiteBanner.png" alt="Website Banner" sx={{ height: 40 }} />
+        <BannerComponent />
+        
         <Typography variant="h6" sx={{ flexGrow: 1 }}>
-          {title}
+          
         </Typography>
         {navItems.map((item, index) => (
           <Button key={index} color="inherit" component={Link} to={item.path}>

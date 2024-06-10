@@ -64,3 +64,13 @@ export const apiJoinRoom = async (roomID, name, profilePic) => {
     throw error;
   }
 };
+
+export const apiRemoveSongFromQueue = async (roomID, songID) => {
+  try {
+    const response = await axios.delete(`${backendUrl}/room/${roomID}/remove_song/${songID}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error removing song from queue:', error);
+    throw error;
+  }
+};

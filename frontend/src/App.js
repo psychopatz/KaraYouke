@@ -33,9 +33,10 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/create-room" element={<CreateRoomComponent />} />
         <Route path="/join-room/:roomID?" element={<JoinRoomComponent />} />
-        <Route path="/play/:videoID" element={<PlayerComponent />} />
+        <Route path="/play/:roomID" element={<PlayerComponent />} />
         <Route path="/menu" element={<MainMenuComponent />} />
         <Route path="/profile" element={<ProfileComponent />} />
+        <Route path="/search:roomID" element={<SearchComponent />} />
         <Route path="/search" element={<SearchComponent />} />
         <Route path="/remote" element={<RemoteControl />} />
         <Route path="/room/:roomID" element={<RoomComponent />} /> 
