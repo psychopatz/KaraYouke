@@ -1,4 +1,4 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from youtube_search import YoutubeSearch
@@ -32,8 +32,6 @@ class SongQueueItem(BaseModel):
 
 class Room(BaseModel):
     room_id: str
-    monitor: WebSocket = None
-    remotes: List[WebSocket] = []
     users: List[User] = []
     song_queue: List[SongQueueItem] = []
 
@@ -97,53 +95,6 @@ async def join_room(room_id: str, name: str, profile_pic: str):
     rooms[room_id].users.append(user)
     users[user_id] = user
     return {"message": f"User {name} joined room {room_id} as remote", "user_id": user_id}
-
-@app.websocket("/ws/{room_id}/{role}/{user_id}")
-async def websocket_endpoint(websocket: WebSocket, room_id: str, role: str, user_id: str):
-    await websocket.accept()
-    if room_id not in rooms or user_id not in users or users[user_id].room_id != room_id:
-        await websocket.close(code=1000)
-        return
-    
-    room = rooms[room_id]
-    user = users[user_id]
-
-    if role == "monitor":
-        if room.monitor is not None:
-            await websocket.close(code=1000)
-            return
-        room.monitor = websocket
-    elif role == "remote":
-        room.remotes.append(websocket)
-    else:
-        await websocket.close(code=1000)
-        return
-
-    try:
-        while True:
-            data = await websocket.receive_text()
-            if role == "remote":
-                if room.monitor is not None:
-                    await room.monitor.send_text(data)
-            elif role == "monitor":
-                for remote in room.remotes:
-                    await remote.send_text(data)
-    except WebSocketDisconnect:
-        if role == "monitor":
-            # Delete the room if the monitor disconnects
-            for u in room.users:
-                del users[u.user_id]
-            del rooms[room_id]
-        elif role == "remote":
-            room.remotes.remove(websocket)
-            room.users = [u for u in room.users if u.user_id != user_id]
-            del users[user_id]
-
-        if room.monitor is None and len(room.remotes) == 0 and len(room.users) == 0:
-            del rooms[room_id]
-
-    except Exception as e:
-        print(f"Exception in WebSocket connection: {e}")
 
 @app.post("/room/{room_id}/add_song")
 async def add_song(room_id: str, song: SongQueueItem, user_id: str):
