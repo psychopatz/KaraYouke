@@ -61,7 +61,7 @@ async def create_room(room_id: str, name: str, profile_pic: str):
     monitor_user = User(user_id=monitor_id, name=name, profile_pic=profile_pic, room_id=room_id, type="monitor")
     rooms[room_id] = Room(room_id=room_id, users=[monitor_user])
     users[monitor_id] = monitor_user
-    return {"message": f"Room {room_id} created successfully with monitor {name}", "monitor_id": monitor_id}
+    return {"roomID": room_id,"sessionID": monitor_id,"type":monitor_user.type}
 
 @app.get("/rooms")
 async def get_rooms():
@@ -94,7 +94,7 @@ async def join_room(room_id: str, name: str, profile_pic: str):
     user = User(user_id=user_id, name=name, profile_pic=profile_pic, room_id=room_id, type="remote")
     rooms[room_id].users.append(user)
     users[user_id] = user
-    return {"message": f"User {name} joined room {room_id} as remote", "user_id": user_id}
+    return {"roomID": room_id,"sessionID": user_id,"type":user.type}
 
 @app.post("/room/{room_id}/add_song")
 async def add_song(room_id: str, song: SongQueueItem, user_id: str):
@@ -124,8 +124,6 @@ async def remove_song(room_id: str, song_id: UUID):
         raise HTTPException(status_code=404, detail="Song not found in the queue")
     
     room.song_queue.remove(song_to_remove)
-    if room.monitor is not None:
-        await room.monitor.send_json({"action": "remove_song", "song_id": str(song_id)})
     return {"message": "Song removed from queue"}
 
 @app.delete("/room/{room_id}")

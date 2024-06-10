@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { Box, Card, CardContent, Avatar, Typography, styled } from '@mui/material';
-import { useRoom } from './RoomContext';
+import { RoomContext } from '../songQueue/RoomContext';
 
 const ScrollableBox = styled(Box)({
   display: 'flex',
@@ -10,12 +10,12 @@ const ScrollableBox = styled(Box)({
 });
 
 const UserList = () => {
-  const { roomDetails } = useRoom();
+  const { roomData} = useContext(RoomContext);
 
   return (
     <ScrollableBox>
-      {roomDetails && roomDetails.users.length > 0 ? (
-        roomDetails.users.map((user) => (
+      {roomData && roomData.users.length > 0 ? (
+        roomData.users.map((user) => (
           <Card key={user.user_id}>
             <CardContent>
               <Box display="flex" alignItems="center" gap={2}>

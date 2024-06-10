@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, TextField, Button, Typography, Snackbar, Alert } from '@mui/material';
 import localStorageAPI from '../../API/localStorageAPI';
@@ -23,6 +23,13 @@ const CreateRoomComponent = () => {
   const [alertMessage, setAlertMessage] = useState('');
   const [alertSeverity, setAlertSeverity] = useState('success');
 
+  useEffect(() => {
+    const userdata = localStorageAPI.getItem('userdata');
+    if (!userdata) {
+      navigate('/profile');
+    }
+  }, []);
+
 
   const handleCreateRoom = async () => {
     if (!roomID) {
@@ -34,11 +41,20 @@ const CreateRoomComponent = () => {
 
     try {
       const data = await apiCreateRoom(roomID, user.name, user.profilePicture);
+      const newUser = {
+        ...user,
+        session: {
+          roomID: data.roomID,
+          sessionID: data.sessionID,
+          type: data.type,
+        },
+      };
+      localStorageAPI.setItem('userdata', newUser);
 
-      setAlertMessage(data.message);
+      setAlertMessage("Successfully created room: " + data.roomID);
       setAlertSeverity('success');
       setAlertOpen(true);
-      navigate(`/room/${roomID}`);
+      navigate(`/play/${roomID}`);
     } catch (error) {
       setAlertMessage(error.message);
       setAlertSeverity('error');

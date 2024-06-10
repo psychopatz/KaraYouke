@@ -1,11 +1,11 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { Typography, Box } from '@mui/material';
 import QrCodeGenerator from '../qr/QrCodeGenerator';
-import { useRoom } from './RoomContext';
+import { RoomContext } from '../songQueue/RoomContext';
 
 const RoomHeader = () => {
-  const { roomID } = useRoom();
   const frontEndUrl = process.env.REACT_APP_FRONTEND_URL;
+  const { roomID } = useContext(RoomContext);
 
   return (
     <Box mb={2}>

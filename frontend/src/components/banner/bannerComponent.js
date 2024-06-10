@@ -34,7 +34,7 @@ const BannerComponent = () => {
   return (
     <>
       <StyledBanner component="img" src="/websiteBanner.png" alt="Website Banner" sx={{ height: 40 }} />
-      <StyledTypography variant="h5">
+      <StyledTypography variant="h5" sx={{ fontSize: "100%" }}>
         KaraYouke🎤🎶
       </StyledTypography>
     </>

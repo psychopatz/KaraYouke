@@ -1,5 +1,7 @@
 import React, { createContext, useState, useEffect } from 'react';
 import { apiGetRoomDetails, apiRemoveSongFromQueue } from '../../API/apiService';
+import localStorageAPI from '../../API/localStorageAPI';
+import { useNavigate } from 'react-router-dom';
 
 export const RoomContext = createContext();
 
@@ -11,6 +13,7 @@ export const RoomProvider = ({ children, currentRoom }) => {
   const [error, setError] = useState(null);
   const [currentPlaying, setCurrentPlaying] = useState(idleVideo);
   const [videoEnded, setVideoEnded] = useState(false);
+  const navigate = useNavigate();
   
 
   const fetchRoomDetails = async (roomID) => {
@@ -25,6 +28,14 @@ export const RoomProvider = ({ children, currentRoom }) => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const userdata = localStorageAPI.getItem('userdata');
+    if (!userdata) {
+      navigate('/profile');
+    }
+
+  }, []);
 
   const handleIdlePlayer = () => {
     setCurrentPlaying(idleVideo);

@@ -46,10 +46,12 @@ const ContentContainer = styled(Box)({
   pointerEvents: 'none',
 });
 
+
+
 const DisplayPlayer = () => {
   const playerRef = useRef(null);
   const [quality, setQuality] = useState('default');
-  const { roomData, loading, error,currentPlaying,videoEnded, setVideoEnded,idleVideo } = useContext(RoomContext);
+  const { loading, error,currentPlaying,videoEnded, setVideoEnded,idleVideo } = useContext(RoomContext);
   
 
   useEffect(() => {
@@ -70,6 +72,7 @@ const DisplayPlayer = () => {
       player.setPlaybackQuality(quality);
     }
   }, [quality]);
+  
 
   const handleQualityChange = (event) => {
     const selectedQuality = event.target.value;
@@ -147,11 +150,11 @@ const DisplayPlayer = () => {
         </YouTubeWrapper>
       </BackgroundVideo>
       {videoEnded && <PlayerEnding />}
-      <ContentContainer>
+      {/* <ContentContainer>
         <Box sx={{ pointerEvents: 'auto' }}>  
           <QualitySelector quality={quality} onQualityChange={handleQualityChange} />
         </Box>
-      </ContentContainer>
+      </ContentContainer> */}
     </FullPageContainer>
   );
 };

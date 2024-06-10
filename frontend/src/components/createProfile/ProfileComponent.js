@@ -42,6 +42,7 @@ const ProfileComponent = () => {
     const newUser = {
       name,
       profilePicture: selectedAvatar,
+      session:{roomID: "",sessionID: "",type:""}
     };
     localStorageAPI.setItem('userdata', newUser);
 

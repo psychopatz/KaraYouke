@@ -9,7 +9,6 @@ import LandingPage from './components/landingPage/LandingPage';
 import ProfileComponent from './components/createProfile/ProfileComponent';
 import MainMenuComponent from './components/mainMenu/MainMenuComponent';
 import NotFoundPage from './components/NotFoundPage/NotFoundPage';
-import RoomComponent from './components/room/RoomComponent';
 import JoinRoomComponent from './components/joinRoom/JoinRoomComponent';
 import PlayerComponent from './components/player/PlayerComponent';
 import CreateRoomComponent from './components/createRoom/CreateRoomComponent,';
@@ -39,7 +38,6 @@ function App() {
         <Route path="/search:roomID" element={<SearchComponent />} />
         <Route path="/search" element={<SearchComponent />} />
         <Route path="/remote" element={<RemoteControl />} />
-        <Route path="/room/:roomID" element={<RoomComponent />} /> 
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Box>

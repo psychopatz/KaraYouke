@@ -32,6 +32,8 @@ export const apiCreateRoom = async (roomID, name, profilePic) => {
       }
     });
 
+    console.log("API CreateRoom: ", response.data);
+
     return response.data;
   } catch (error) {
     console.error('Error creating room:', error);
@@ -58,6 +60,8 @@ export const apiJoinRoom = async (roomID, name, profilePic) => {
       }
     });
 
+    console.log("API JoinRoom: ", response.data);
+
     return response.data;
   } catch (error) {
     console.error('Error joining room:', error);
@@ -68,6 +72,8 @@ export const apiJoinRoom = async (roomID, name, profilePic) => {
 export const apiRemoveSongFromQueue = async (roomID, songID) => {
   try {
     const response = await axios.delete(`${backendUrl}/room/${roomID}/remove_song/${songID}`);
+
+    console.log("API RemoveSongFromQueue: ", response.data);
     return response.data;
   } catch (error) {
     console.error('Error removing song from queue:', error);

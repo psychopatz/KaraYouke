@@ -25,23 +25,37 @@ const UserFieldContainer = styled(Box)({
 const JoinRoomComponent = () => {
   const { roomID } = useParams();
   const navigate = useNavigate();
-  const [room, setRoom] = useState(roomID);
+  const user = localStorageAPI.getItem('userdata');
+  const [room, setRoom] = useState(roomID || '');
   const [name, setName] = useState('');
   const [profilePic, setProfilePic] = useState('');
   const [error, setError] = useState('');
 
+
   useEffect(() => {
-    const userdata = localStorageAPI.getItem('userdata');
-    if (userdata) {
-      setName(userdata.name);
-      setProfilePic(userdata.profilePicture);
+    if (!user) {
+      navigate('/profile');
+    }
+    else{
+      setName(user.name);
+      setProfilePic(user.profilePicture);
     }
   }, []);
 
   const handleJoinRoom = async () => {
     try {
-      await apiJoinRoom(room, name, profilePic);
-      navigate(`/room/${room}`);
+      const data = await apiJoinRoom(room, name, profilePic);
+      const newUser = {
+        ...user,
+        session: {
+          roomID: data.roomID,
+          sessionID: data.sessionID,
+          type: data.type,
+        },
+      };
+      localStorageAPI.setItem('userdata', newUser);
+      
+      navigate(`/play/${room}`);
     } catch (err) {
       setError('Failed to join the room. Please try again.');
     }

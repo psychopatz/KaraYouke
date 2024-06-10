@@ -43,6 +43,7 @@ const PlayerEnding = () => {
       if (roomData.song_queue.length === 0) {
         handleIdlePlayer();
       } else {
+        setCurrentPlaying("CkHUhUop1HM");
         setCurrentPlaying(roomData.song_queue[0].song_id);
       }
       
