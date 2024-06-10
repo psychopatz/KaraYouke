@@ -3,6 +3,7 @@ import { RoomContext } from './RoomContext';
 import { styled } from '@mui/material/styles';
 import { Box, Avatar, List, ListItem, ListItemAvatar, ListItemText, Typography } from '@mui/material';
 import BannerComponent from '../banner/bannerComponent';
+import { apiRemoveSongFromQueue } from '../../API/apiService';
 
 const StyledBox = styled(Box)({
   display: 'flex',
@@ -20,19 +21,16 @@ const StyledList = styled(List)({
 });
 
 const StyledListItem = styled(ListItem)({
-//   marginRight: '16px',
   filter: 'drop-shadow(0px 4px 6px rgba(0, 0, 0, 0.9))',
-//   padding: '16px',
-  backgroundColor: 'rgba(0, 0, 0, 0.03)',
-  borderRadius: '8px',
-  color: 'grey',
+  backgroundColor: 'rgba(0, 0, 0, 0.2)',
+  cursor: 'pointer', // Ensures the items show a pointer cursor on hover
+  zIndex: 2, // Ensures the items are on top
+  pointerEvents: 'auto', // Ensures the items are clickable
 });
 
 const HighlightedListItem = styled(StyledListItem)({
-  filter: 'drop-shadow(0px 4px 6px rgba(0, 0, 0, 0.9))',
-  backgroundColor: 'rgba(0, 0, 0, 0.09)',
+  backgroundColor: 'rgba(246, 132, 42, 0.4)',
   borderRadius: '0px',
-//   padding: '16px',
 });
 
 const StyledListItemText = styled(ListItemText)({
@@ -44,19 +42,25 @@ const StyledListItemText = styled(ListItemText)({
 });
 
 const StyledListBanner = styled(ListItem)({
-//   marginRight: '16px',
   filter: 'drop-shadow(0px 4px 6px rgba(0, 0, 0, 0.9))',
-//   padding: '16px',
-  backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  color: 'grey',
+  backgroundColor: 'rgba(241, 103, 38, 0.9)',
+
 });
 
-const HighlightedListItemText = styled(StyledListItemText)({
-  color: 'white',
-});
+
 
 const DisplaySongQueue = () => {
   const { roomData, loading, error } = useContext(RoomContext);
+
+  const handleRemoveSong = async (songID) => {
+    try {
+      await apiRemoveSongFromQueue(roomData.room_id, songID);
+      // Update the roomData state to remove the song locally
+      roomData.song_queue = roomData.song_queue.filter(song => song.song_id !== songID);
+    } catch (error) {
+      console.error('Error removing song from queue:', error);
+    }
+  };
 
   if (loading) return <Typography>Loading...</Typography>;
   if (error) return <Typography>Error: {error.message}</Typography>;
@@ -69,23 +73,27 @@ const DisplaySongQueue = () => {
         </StyledListBanner>
         {roomData.song_queue.map((song, index) => (
           index === 0 ? (
-            <HighlightedListItem key={song.song_id}>
+            <HighlightedListItem key={song.song_id} onClick={() => handleRemoveSong(song.song_id)}>
               <ListItemAvatar>
                 <Avatar src={song.user.profile_pic} alt={song.user.name} />
               </ListItemAvatar>
-              <HighlightedListItemText 
+              <ListItemText 
                 primary={`🎵${song.title}`} 
                 secondary={`Now Playing: 🎤${song.user.name}`} 
+                primaryTypographyProps={{ color: 'white' }} 
+                secondaryTypographyProps={{ color: 'white' }} 
               />
             </HighlightedListItem>
           ) : (
-            <StyledListItem key={song.song_id}>
+            <StyledListItem key={song.song_id} onClick={() => handleRemoveSong(song.song_id)}>
               <ListItemAvatar>
                 <Avatar src={song.user.profile_pic} alt={song.user.name} />
               </ListItemAvatar>
-              <StyledListItemText 
+              <ListItemText 
                 primary={song.title} 
                 secondary={`Requested by: ${song.user.name}`} 
+                primaryTypographyProps={{ color: 'lightgrey' }} 
+                secondaryTypographyProps={{ color: 'grey' }} 
               />
             </StyledListItem>
           )
