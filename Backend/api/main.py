@@ -4,12 +4,12 @@ from pydantic import BaseModel
 from youtube_search import YoutubeSearch
 from typing import List, Dict
 from uuid import uuid4, UUID
+from sockets import app, sio
 
-app = FastAPI()
-
+# Set up CORS for FastAPI
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # Change this to your allowed origins
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -109,8 +109,7 @@ async def add_song(room_id: str, song: SongQueueItem, user_id: str):
     song.song_id = uuid4()
     song.user = users[user_id]
     room.song_queue.append(song)
-    if room.monitor is not None:
-        await room.monitor.send_json({"action": "add_song", "song": song.dict()})
+    await sio.emit('add_song', song.dict(), room=room_id)  # Emit event to the room
     return {"message": "Song added to queue"}
 
 @app.delete("/room/{room_id}/remove_song/{song_id}")
@@ -124,8 +123,7 @@ async def remove_song(room_id: str, song_id: UUID):
         raise HTTPException(status_code=404, detail="Song not found in the queue")
     
     room.song_queue.remove(song_to_remove)
-    if room.monitor is not None:
-        await room.monitor.send_json({"action": "remove_song", "song_id": str(song_id)})
+    await sio.emit('remove_song', {'song_id': str(song_id)}, room=room_id)  # Emit event to the room
     return {"message": "Song removed from queue"}
 
 @app.delete("/room/{room_id}")
@@ -138,4 +136,9 @@ async def delete_room(room_id: str):
         del users[user.user_id]
     del rooms[room_id]
     
+    await sio.emit('delete_room', {'room_id': room_id})  # Emit event to all clients
     return {"message": f"Room {room_id} deleted successfully"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
