@@ -35,7 +35,6 @@ function App() {
         <Route path="/play/:roomID" element={<PlayerComponent />} />
         <Route path="/menu" element={<MainMenuComponent />} />
         <Route path="/profile" element={<ProfileComponent />} />
-        <Route path="/search:roomID" element={<SearchComponent />} />
         <Route path="/search" element={<SearchComponent />} />
         <Route path="/remote" element={<RemoteControl />} />
         <Route path="*" element={<NotFoundPage />} />

@@ -29,6 +29,11 @@ class SongQueueItem(BaseModel):
     url: str
     thumbnail: str
     user: User
+    
+class SongAddtoQueue(BaseModel):
+    title: str
+    url: str
+    thumbnail: str
 
 class Room(BaseModel):
     room_id: str
@@ -97,7 +102,7 @@ async def join_room(room_id: str, name: str, profile_pic: str):
     return {"roomID": room_id,"sessionID": user_id,"type":user.type}
 
 @app.post("/room/{room_id}/add_song")
-async def add_song(room_id: str, song: SongQueueItem, user_id: str):
+async def add_song(room_id: str, song: SongAddtoQueue, user_id: str):
     if room_id not in rooms:
         raise HTTPException(status_code=404, detail="Room not found")
     if user_id not in users:
@@ -106,12 +111,18 @@ async def add_song(room_id: str, song: SongQueueItem, user_id: str):
         raise HTTPException(status_code=403, detail="User not in the specified room")
     
     room = rooms[room_id]
-    song.song_id = uuid4()
-    song.user = users[user_id]
-    room.song_queue.append(song)
-    if room.monitor is not None:
-        await room.monitor.send_json({"action": "add_song", "song": song.dict()})
-    return {"message": "Song added to queue"}
+    song_id = uuid4()
+    song_queue_item = SongQueueItem(
+        song_id=song_id,
+        title=song.title,
+        url=song.url,
+        thumbnail=song.thumbnail,
+        user=users[user_id]
+    )
+    room.song_queue.append(song_queue_item)
+    
+    return {"message": "Song added to queue", "song": song_queue_item.dict()}
+
 
 @app.delete("/room/{room_id}/remove_song/{song_id}")
 async def remove_song(room_id: str, song_id: UUID):

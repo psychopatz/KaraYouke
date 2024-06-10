@@ -2,11 +2,13 @@ import React, { useState, useEffect, useRef, forwardRef } from 'react';
 import { Grid } from '@mui/material';
 import SearchCard from './SearchCard';
 import VideoPopup from './VideoPopup';
+import { apiAddSongToQueue } from '../../API/apiService';
+import localStorageAPI from '../../API/localStorageAPI';
 
 const SearchResults = forwardRef(({ results, isFormFocused }, ref) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [open, setOpen] = useState(false);
-  const [videoId, setVideoId] = useState('');
+  const [selectedVideo, setSelectedVideo] = useState(null); // Store the selected video object
   const columns = 3; // Adjust this based on your layout
   const itemRefs = useRef([]);
 
@@ -29,7 +31,7 @@ const SearchResults = forwardRef(({ results, isFormFocused }, ref) => {
           break;
         case 'Enter':
           if (itemRefs.current[selectedIndex]) {
-            handleOpenVideo(results[selectedIndex].url_suffix);
+            handleOpenVideo(results[selectedIndex]);
           }
           break;
         default:
@@ -56,9 +58,9 @@ const SearchResults = forwardRef(({ results, isFormFocused }, ref) => {
     }
   }, [ref, results]);
 
-  const handleOpenVideo = (urlSuffix) => {
-    const videoId = new URLSearchParams(new URL(`https://www.youtube.com${urlSuffix}`).search).get('v');
-    setVideoId(videoId);
+  const handleOpenVideo = (video) => {
+    const videoId = new URLSearchParams(new URL(`https://www.youtube.com${video.url_suffix}`).search).get('v');
+    setSelectedVideo({ ...video, videoId }); // Store the full video object
     setOpen(true);
   };
 
@@ -66,11 +68,33 @@ const SearchResults = forwardRef(({ results, isFormFocused }, ref) => {
     setOpen(false);
   };
 
-  const handleAddToQueue = () => {
-    // Logic to add the video to the queue
-    console.log(`Add video ${videoId} to queue`);
-    handleClose();
-  };
+  const handleAddToQueue = async () => {
+  if (selectedVideo) {
+    try {
+      const userdata = localStorageAPI.getItem('userdata');
+      const roomID = userdata.session.roomID;
+      const userID = userdata.session.sessionID;
+
+      const song = {
+        title: selectedVideo.title,
+        url: selectedVideo.id,
+        thumbnail: "selectedVideo.thumbnails[0]", // Ensure this is the correct path to the thumbnail URL
+      };
+
+      console.log(`Adding song to queue:`, song);
+
+      const message = await apiAddSongToQueue(roomID, userID, song);
+
+      console.log(`API Response to Add song to queue:`, message);
+      // Logic to handle the success, e.g., showing a success message
+    } catch (error) {
+      console.error('Error adding song to queue:', error);
+      // Logic to handle the error, e.g., showing an error message
+    }
+  }
+  handleClose();
+};
+
 
   return (
     <>
@@ -80,7 +104,7 @@ const SearchResults = forwardRef(({ results, isFormFocused }, ref) => {
             <SearchCard 
               result={result} 
               selected={index === selectedIndex} 
-              onClick={() => handleOpenVideo(result.url_suffix)} 
+              onClick={() => handleOpenVideo(result)} 
             />
           </Grid>
         ))}
@@ -88,7 +112,7 @@ const SearchResults = forwardRef(({ results, isFormFocused }, ref) => {
 
       <VideoPopup 
         open={open} 
-        videoId={videoId} 
+        videoId={selectedVideo?.videoId} 
         onClose={handleClose} 
         onAddToQueue={handleAddToQueue} 
       />

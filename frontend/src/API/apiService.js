@@ -80,3 +80,19 @@ export const apiRemoveSongFromQueue = async (roomID, songID) => {
     throw error;
   }
 };
+
+export const apiAddSongToQueue = async (roomID, userID, song) => {
+  try {
+    const response = await axios.post(`${backendUrl}/room/${roomID}/add_song`, song, {
+      params: {
+        user_id: userID
+      }
+    });
+
+    console.log("API AddSongToQueue: ", response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error adding song to queue:', error);
+    throw error;
+  }
+};
