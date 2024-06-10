@@ -59,7 +59,7 @@ export const RoomProvider = ({ children, currentRoom }) => {
       fetchRoomDetails(roomID);
       const interval = setInterval(() => {
         fetchRoomDetails(roomID);
-      }, 2000); 
+      }, 4000); 
 
       return () => clearInterval(interval); // Cleanup on unmount
     }

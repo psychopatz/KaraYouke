@@ -53,10 +53,18 @@ const DisplaySongQueue = () => {
   const { roomData, loading, error } = useContext(RoomContext);
 
   const handleRemoveSong = async (songID) => {
+    const isLastSong = false;
     try {
+      if(roomData.song_queue.songID === songID) {
+        isLastSong = true; 
+      }
+      
       await apiRemoveSongFromQueue(roomData.room_id, songID);
       // Update the roomData state to remove the song locally
       roomData.song_queue = roomData.song_queue.filter(song => song.song_id !== songID);
+      if(isLastSong) {
+        window.location.reload(); // Reload the website
+      }
     } catch (error) {
       console.error('Error removing song from queue:', error);
     }
