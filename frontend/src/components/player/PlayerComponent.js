@@ -99,8 +99,13 @@ const PlayerComponent = () => {
     }, 1000);
   };
 
-  const onPlayerStateChange = (event) => {
-    if (event.data === window.YT.PlayerState.ENDED) {
+  const onPlayerStateChange = (event) => { //When video ended
+    if (event.data === window.YT.PlayerState.ENDED) { 
+      const duration = event.target.getDuration();
+      const midTime = duration / 2;
+      event.target.seekTo(midTime);
+      event.target.pauseVideo();
+      
       setVideoEnded(true);
     }
   };

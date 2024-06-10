@@ -1,16 +1,12 @@
 import React, { useState, useEffect, useRef, forwardRef } from 'react';
-import { Grid, Card, CardContent, CardMedia, Typography } from '@mui/material';
-import { styled } from '@mui/system';
-
-const SearchCard = styled(Card)(({ theme, selected }) => ({
-  marginBottom: theme.spacing(2),
-  backgroundColor: selected ? 'black' : theme.palette.background.paper,
-  color: selected ? 'white' : 'inherit',
-  transition: 'background-color 0.3s ease-in-out',
-}));
+import { Grid } from '@mui/material';
+import SearchCard from './SearchCard';
+import VideoPopup from './VideoPopup';
 
 const SearchResults = forwardRef(({ results, isFormFocused }, ref) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [open, setOpen] = useState(false);
+  const [videoId, setVideoId] = useState('');
   const columns = 3; // Adjust this based on your layout
   const itemRefs = useRef([]);
 
@@ -33,7 +29,7 @@ const SearchResults = forwardRef(({ results, isFormFocused }, ref) => {
           break;
         case 'Enter':
           if (itemRefs.current[selectedIndex]) {
-            itemRefs.current[selectedIndex].querySelector('a').click();
+            handleOpenVideo(results[selectedIndex].url_suffix);
           }
           break;
         default:
@@ -60,40 +56,43 @@ const SearchResults = forwardRef(({ results, isFormFocused }, ref) => {
     }
   }, [ref, results]);
 
+  const handleOpenVideo = (urlSuffix) => {
+    const videoId = new URLSearchParams(new URL(`https://www.youtube.com${urlSuffix}`).search).get('v');
+    setVideoId(videoId);
+    setOpen(true);
+  };
+
+  const handleClose = () => {
+    setOpen(false);
+  };
+
+  const handleAddToQueue = () => {
+    // Logic to add the video to the queue
+    console.log(`Add video ${videoId} to queue`);
+    handleClose();
+  };
+
   return (
-    <Grid container spacing={2} tabIndex={-1} ref={ref}>
-      {results.map((result, index) => (
-        <Grid item xs={12} sm={6} md={4} key={index} ref={(el) => (itemRefs.current[index] = el)}>
-          <SearchCard selected={index === selectedIndex}>
-            <CardMedia
-              component="img"
-              height="140"
-              image={result.thumbnails[0]}
-              alt={result.title}
+    <>
+      <Grid container spacing={2} tabIndex={-1} ref={ref}>
+        {results.map((result, index) => (
+          <Grid item xs={12} sm={6} md={4} key={index} ref={(el) => (itemRefs.current[index] = el)}>
+            <SearchCard 
+              result={result} 
+              selected={index === selectedIndex} 
+              onClick={() => handleOpenVideo(result.url_suffix)} 
             />
-            <CardContent>
-              <Typography variant="h6" component="div">
-                <a href={`https://www.youtube.com${result.url_suffix}`} target="_blank" rel="noopener noreferrer" style={{ color: index === selectedIndex ? 'white' : 'inherit' }}>
-                  {result.title}
-                </a>
-              </Typography>
-              <Typography variant="body2" color={index === selectedIndex ? 'white' : 'text.secondary'}>
-                <strong>Channel:</strong> {result.channel}
-              </Typography>
-              <Typography variant="body2" color={index === selectedIndex ? 'white' : 'text.secondary'}>
-                <strong>Duration:</strong> {result.duration}
-              </Typography>
-              <Typography variant="body2" color={index === selectedIndex ? 'white' : 'text.secondary'}>
-                <strong>Views:</strong> {result.views}
-              </Typography>
-              <Typography variant="body2" color={index === selectedIndex ? 'white' : 'text.secondary'}>
-                <strong>Published:</strong> {result.publish_time}
-              </Typography>
-            </CardContent>
-          </SearchCard>
-        </Grid>
-      ))}
-    </Grid>
+          </Grid>
+        ))}
+      </Grid>
+
+      <VideoPopup 
+        open={open} 
+        videoId={videoId} 
+        onClose={handleClose} 
+        onAddToQueue={handleAddToQueue} 
+      />
+    </>
   );
 });
 
