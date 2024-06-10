@@ -25,7 +25,7 @@ const UserFieldContainer = styled(Box)({
 const JoinRoomComponent = () => {
   const { roomID } = useParams();
   const navigate = useNavigate();
-  const [room, setRoom] = useState(roomID || '');
+  const [room, setRoom] = useState(roomID);
   const [name, setName] = useState('');
   const [profilePic, setProfilePic] = useState('');
   const [error, setError] = useState('');

@@ -32,7 +32,7 @@ function App() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/create-room" element={<CreateRoomComponent />} />
-        <Route path="/join-room/:videoID?" element={<JoinRoomComponent />} />
+        <Route path="/join-room/:roomID?" element={<JoinRoomComponent />} />
         <Route path="/play/:videoID" element={<PlayerComponent />} />
         <Route path="/menu" element={<MainMenuComponent />} />
         <Route path="/profile" element={<ProfileComponent />} />
