@@ -2,6 +2,17 @@ import axios from 'axios';
 
 const backendUrl = process.env.REACT_APP_BACKEND_URL;
 
+
+export const apiGetRoomDetails = async (roomID) => {
+  try {
+    const response = await axios.get(`${backendUrl}/rooms/${roomID}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching room details:', error);
+    throw error;
+  }
+};
+
 export const apiSearch = async (query, maxResults, page) => {
   try {
     const response = await axios.get(`${backendUrl}/search`, {
@@ -37,16 +48,6 @@ export const apiCreateRoom = async (roomID, name, profilePic) => {
     return response.data;
   } catch (error) {
     console.error('Error creating room:', error);
-    throw error;
-  }
-};
-
-export const apiGetRoomDetails = async (roomID) => {
-  try {
-    const response = await axios.get(`${backendUrl}/rooms/${roomID}`);
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching room details:', error);
     throw error;
   }
 };

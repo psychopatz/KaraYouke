@@ -2,8 +2,9 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from youtube_search import YoutubeSearch
-from typing import List, Dict
+from typing import List, Dict, Optional  
 from uuid import uuid4, UUID
+import asyncio
 
 app = FastAPI()
 
@@ -50,13 +51,35 @@ users: Dict[str, User] = {}
 async def health_check():
     return {"message": "Karayouke API is up and running!"}
 
-@app.get("/search")
-async def search(query: str, max_results: int = Query(10, description="Maximum number of results to return"), page: int = Query(1, description="Page number")):
-    results = YoutubeSearch(query, max_results=max_results).to_dict()
-    start = (page - 1) * max_results
-    end = start + max_results
-    paginated_results = results[start:end]
-    return {"results": paginated_results, "total_results": len(results), "page": page, "max_results": max_results}
+
+
+async def check_for_updates(room_id: str, last_version: Optional[int]):
+    timeout = 30  # Timeout after 30 seconds
+    start_time = asyncio.get_event_loop().time()
+    while True:
+        room = rooms.get(room_id)
+        if not room:
+            raise HTTPException(status_code=404, detail="Room not found")
+
+        current_version = len(room.song_queue)  # Using song queue length as a simple version indicator
+        if last_version is None or current_version > last_version:
+            return room
+
+        # Check if timeout has been reached
+        if asyncio.get_event_loop().time() - start_time > timeout:
+            return room
+
+        await asyncio.sleep(1)  # Wait before checking again
+
+@app.get("/rooms/{room_id}")
+async def get_room_details(room_id: str, last_version: Optional[int] = None):
+    room = await check_for_updates(room_id, last_version)
+    return {
+        "room_id": room_id,
+        "users": [user.dict() for user in room.users],
+        "song_queue": [song.dict() for song in room.song_queue]
+    }    
+    
 
 @app.post("/create_room/{room_id}")
 async def create_room(room_id: str, name: str, profile_pic: str):
@@ -80,16 +103,6 @@ async def get_rooms():
     ]
     return {"rooms": room_list}
 
-@app.get("/rooms/{room_id}")
-async def get_room_details(room_id: str):
-    if room_id not in rooms:
-        raise HTTPException(status_code=404, detail="Room not found")
-    room = rooms[room_id]
-    return {
-        "room_id": room_id,
-        "users": [user.dict() for user in room.users],
-        "song_queue": [song.dict() for song in room.song_queue]
-    }
 
 @app.post("/join_room/{room_id}")
 async def join_room(room_id: str, name: str, profile_pic: str):
@@ -148,3 +161,12 @@ async def delete_room(room_id: str):
     del rooms[room_id]
     
     return {"message": f"Room {room_id} deleted successfully"}
+
+
+@app.get("/search")
+async def search(query: str, max_results: int = Query(10, description="Maximum number of results to return"), page: int = Query(1, description="Page number")):
+    results = YoutubeSearch(query, max_results=max_results).to_dict()
+    start = (page - 1) * max_results
+    end = start + max_results
+    paginated_results = results[start:end]
+    return {"results": paginated_results, "total_results": len(results), "page": page, "max_results": max_results}

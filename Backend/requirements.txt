@@ -2,3 +2,4 @@ fastapi
 uvicorn
 youtube-search
 fastapi-socketio
+
