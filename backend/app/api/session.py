@@ -1,3 +1,4 @@
+# File: backend/app/api/session.py
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from app.services.session_code_utils import generate_session_code
@@ -6,11 +7,28 @@ router = APIRouter()
 
 SESSIONS = {}
 
+class UserEntry(BaseModel):
+    id: str
+    name: str
+    avatar_base64: str
+
+class QueueEntry(BaseModel):
+    # Define your queue structure here if needed
+    song_id: str = ""
+    title: str = ""
+    singer: str = ""
+
+class LeaderboardEntry(BaseModel):
+    # Define your leaderboard structure here if needed
+    id: str
+    name: str
+    score: int
+
 class RestoreRequest(BaseModel):
     session_code: str
-    users: list[dict]
-    queue: list[dict]
-    leaderboard: list[dict]
+    users: list[UserEntry]
+    queue: list[QueueEntry]
+    leaderboard: list[LeaderboardEntry]
 
 @router.get("/ping", tags=["Health"], summary="Health Check", description="Returns 'pong' to confirm the backend server is reachable.")
 def ping():
@@ -35,9 +53,9 @@ def create_session():
 @router.post("/restore", tags=["Session"], summary="Restore Session", description="Restores a session state from the monitor's sessionStorage including users, queue, and scores.")
 def restore_session(data: RestoreRequest):
     SESSIONS[data.session_code] = {
-        "users": data.users,
-        "queue": data.queue,
-        "leaderboard": data.leaderboard
+        "users": [user.dict() for user in data.users],
+        "queue": [entry.dict() for entry in data.queue],
+        "leaderboard": [entry.dict() for entry in data.leaderboard]
     }
     return {
         "status": "OK",
@@ -55,4 +73,3 @@ def get_session_details(session_code: str):
         "session_code": session_code,
         "data": SESSIONS[session_code]
     }
-
