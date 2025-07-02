@@ -5,7 +5,7 @@ import json
 
 router = APIRouter()
 
-@router.get("/search")
+@router.get("/search", tags=["YouTube"], summary="Search YouTube", description="Searches for karaoke videos using a keyword. Returns video title, link, thumbnail, etc.")
 def search_youtube(
     q: str = Query(..., description="Search query"),
     limit: int = Query(10, ge=1, le=20, description="Max results to return")

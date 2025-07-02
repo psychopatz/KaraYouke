@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .api.youtube import router as youtube_router
+from .api.session import router as session_router
 import uvicorn
 
 app = FastAPI()
@@ -16,6 +17,7 @@ app.add_middleware(
 
 # Register API routes
 app.include_router(youtube_router, prefix="/api/youtube")
+app.include_router(session_router, prefix="/api/session")
 
 # Only run when executed directly, not during imports
 if __name__ == "__main__":
