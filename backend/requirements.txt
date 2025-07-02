@@ -1,0 +1,25 @@
+# Core web framework
+fastapi
+uvicorn[standard]
+
+# Socket.IO (WebSocket communication)
+python-socketio[asgi]
+
+# Async database support
+sqlalchemy>=2.0
+aiosqlite
+
+# Database migration
+alembic
+
+# YouTube search (no API key)
+youtube-search
+
+# Form parsing (optional for uploads)
+python-multipart
+
+# Data validation
+pydantic
+
+# Async file streaming (optional)
+aiofiles
