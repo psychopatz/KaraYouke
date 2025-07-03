@@ -32,6 +32,7 @@ async def join_room(sid, session_code):
     if session_code in SESSIONS:
         await sio.emit("users_updated", SESSIONS[session_code]["users"], to=sid)
 
+
 @sio.event
 async def register_user(sid, data):
     if sid in connected_clients:
@@ -50,3 +51,23 @@ async def logout_user(sid, data):
     await sio.leave_room(sid, session_code)
     connected_clients.pop(sid, None)
     print(f"User {user_id} logged out from session {session_code}")
+
+@sio.event
+async def kick_user(sid, data):
+    session_code = data.get("session_code")
+    user_id = data.get("id")
+
+    print(f"[kick_user] Monitor {sid} wants to kick {user_id} from session {session_code}")
+    print(f"[kick_user] Current connected_clients: {connected_clients}")
+
+    sid_to_kick = None
+    for s, info in connected_clients.items():
+        if info["user_id"] == user_id and info["session_code"] == session_code:
+            sid_to_kick = s
+            break
+
+    if sid_to_kick:
+        await logout_user(sid_to_kick, {"session_code": session_code, "id": user_id})
+        print(f"[kick_user] Kicked user {user_id}")
+    else:
+        print(f"[kick_user] Could not find sid for user {user_id}")

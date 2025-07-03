@@ -15,35 +15,19 @@ from .sockets.socket_server import sio
 # Load environment variables from .env
 load_dotenv()
 
-# Read DEBUG and CORS origins from env
-DEBUG = os.getenv("DEBUG", "false").lower() == "true"
-origins = os.getenv("ALLOWED_ORIGINS", "").split(",")
+# Read CORS origins from env
+origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 
 # Main FastAPI app
 fastapi_app = FastAPI()
 
-# CORS middleware setup based on DEBUG value
-if DEBUG:
-    # In DEBUG mode, allow all origins but don't allow credentials
-    fastapi_app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],  # Allow all origins in DEBUG mode
-        allow_credentials=False,  # Credentials not allowed in debug mode
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-else:
-    # In production, use the specified origins and allow credentials
-    if origins:
-        fastapi_app.add_middleware(
-            CORSMiddleware,
-            allow_origins=origins,  # Allow only specific origins in production
-            allow_credentials=True,  # Allow credentials in production
-            allow_methods=["*"],
-            allow_headers=["*"],
-        )
-    else:
-        raise ValueError("ALLOWED_ORIGINS is not set in the .env file")
+fastapi_app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Register API routes
 fastapi_app.include_router(youtube_router, prefix="/api/youtube")
