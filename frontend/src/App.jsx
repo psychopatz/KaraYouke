@@ -4,10 +4,13 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
 
-// Import Pages
+// Import Pages & Layouts
 import LandingPage from './pages/LandingPage';
-import SessionTest from './pages/SessionTest'; 
 import HostPage from './pages/HostPage';
+import RemoteQueue from './pages/RemoteQueue'; // Assuming this exists for the remote page
+import ProfileCreationPage from './pages/ProfileCreationPage'; 
+import ProfileCheckLayout from './layout/ProfileCheckLayout'; 
+import SessionTest from './pages/SessionTest'; 
 
 // A dark theme for our Karaoke App
 const darkTheme = createTheme({
@@ -40,14 +43,27 @@ const darkTheme = createTheme({
 function App() {
   return (
     <ThemeProvider theme={darkTheme}>
-      {/* CssBaseline resets browser styles for consistency */}
       <CssBaseline />
       <Router>
         <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/create-room" element={<HostPage/>} />
-          <Route path="/sessiontest" element={<SessionTest/>} />
+          {/* --- Public Routes --- */}
+          {/* This route is for creating a profile. It MUST be outside the check. */}
+          <Route path="/create-profile" element={<ProfileCreationPage />} />
 
+          {/* Your testing route, kept outside the check for easy access. */}
+          <Route path="/sessiontest" element={<SessionTest />} />
+
+
+          {/* --- "Protected" Routes --- */}
+          {/* All routes inside here will first pass through ProfileCheckLayout. */}
+          {/* If no profile exists, the user will be redirected to /create-profile. */}
+          {/* If a profile exists, the <Outlet /> in the layout will render the correct page. */}
+          <Route element={<ProfileCheckLayout />}>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/create-room" element={<HostPage />} />
+            <Route path="/remote" element={<RemoteQueue />} />
+            {/* Note: In LandingPage.jsx, ensure the "Start Session" button now navigates to "/create-room" */}
+          </Route>
 
         </Routes>
       </Router>
