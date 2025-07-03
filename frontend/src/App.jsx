@@ -1,15 +1,13 @@
-import { useState } from 'react'
-import SocketTest from "./components/SocketTest";
-import QueueTest from './components/QueueTest';
+import SessionTest from "./pages/SessionTest"
+
 
 function App() {
-  const [count, setCount] = useState(0)
+
 
   return (
     <>
       <div>
-      {/* <SocketTest /> */}
-      <QueueTest/>
+        <SessionTest/>
     </div>
     </>
   )

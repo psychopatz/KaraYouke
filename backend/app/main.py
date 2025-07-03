@@ -15,19 +15,30 @@ from .sockets.socket_server import sio
 # Load environment variables from .env
 load_dotenv()
 
-# Read CORS origins from env
-origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
+# Read DEBUG and CORS origins from env
+DEBUG = os.getenv("DEBUG", "false").lower() == "true"
+origins = os.getenv("ALLOWED_ORIGINS", "").split(",")
 
 # Main FastAPI app
 fastapi_app = FastAPI()
 
-fastapi_app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# CORS middleware setup based on DEBUG value
+if DEBUG:
+    fastapi_app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],  # Allow all origins in DEBUG mode
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    fastapi_app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins if origins else ["*"],  # Use ALLOWED_ORIGINS or "*" if empty
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 # Register API routes
 fastapi_app.include_router(youtube_router, prefix="/api/youtube")
