@@ -23,3 +23,5 @@ pydantic
 
 # Async file streaming (optional)
 aiofiles
+
+python-dotenv
