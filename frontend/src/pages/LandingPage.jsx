@@ -46,7 +46,7 @@ const LandingPage = () => {
   };
 
   const handleJoinSession = () => {
-    navigate('/remote');
+    navigate('/join-room');
   };
 
   return (

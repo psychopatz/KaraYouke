@@ -7,10 +7,12 @@ import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
 // Import Pages & Layouts
 import LandingPage from './pages/LandingPage';
 import HostPage from './pages/HostPage';
-import RemoteQueue from './pages/RemoteQueue'; // Assuming this exists for the remote page
 import ProfileCreationPage from './pages/ProfileCreationPage'; 
 import ProfileCheckLayout from './layout/ProfileCheckLayout'; 
+import JoinRoomPage from './pages/JoinRoomPage';
+
 import SessionTest from './pages/SessionTest'; 
+
 
 // A dark theme for our Karaoke App
 const darkTheme = createTheme({
@@ -61,7 +63,7 @@ function App() {
           <Route element={<ProfileCheckLayout />}>
             <Route path="/" element={<LandingPage />} />
             <Route path="/create-room" element={<HostPage />} />
-            <Route path="/remote" element={<RemoteQueue />} />
+            <Route path="/join-room/:sessionCode?" element={<JoinRoomPage />} />
             {/* Note: In LandingPage.jsx, ensure the "Start Session" button now navigates to "/create-room" */}
           </Route>
 

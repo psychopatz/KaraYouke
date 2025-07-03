@@ -26,7 +26,7 @@ const QRCodeDisplay = ({ sessionCode }) => {
   }
 
   // Construct the URL for the QR code
-  const joinUrl = `${import.meta.env.VITE_BACKEND_BASE}/remote?session=${sessionCode}`;
+  const joinUrl = `${import.meta.env.VITE_FRONTEND_BASE}/join-room/${sessionCode}`;
   // NOTE: Changed from VITE_BACKEND_BASE. Users should be directed to your frontend join page.
 
   return (
