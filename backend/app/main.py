@@ -6,6 +6,7 @@ from .api.youtube import router as youtube_router
 from .api.session import router as session_router
 from .api.user import router as user_router
 from .api.queue import router as queue_router
+from .api.network import router as network_router
 from .sockets.socket_server import sio
 import uvicorn
 
@@ -25,6 +26,7 @@ fastapi_app.include_router(youtube_router, prefix="/api/youtube")
 fastapi_app.include_router(session_router, prefix="/api/session")
 fastapi_app.include_router(user_router, prefix="/api/user")
 fastapi_app.include_router(queue_router, prefix="/api/queue") 
+fastapi_app.include_router(network_router,prefix="/api/debug")
 
 # Wrap with socket server
 socket_app = ASGIApp(sio, other_asgi_app=fastapi_app)

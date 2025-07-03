@@ -1,33 +1,34 @@
-// File: frontend/src/pages/ServerScannerTest.jsx
-
-import React, { useState } from "react";
+// File: frontend/src/components/LanScanner.jsx
+import React, { useEffect, useState, useRef } from "react";
 import useLanScanner from "../hooks/useLanScanner";
 
-const ServerScannerTest = () => {
-  const { scan, results, scanning, selectBackend } = useLanScanner();
-  const [selected, setSelected] = useState(sessionStorage.getItem("karayouke_backend_url"));
-
-  const handleScan = async () => {
-    const found = await scan();
-    if (found.includes(selected)) return;
-    setSelected(""); // Reset if old selected is gone
-  };
+const LanScanner = ({ onSelect }) => {
+  const { scan, results, scanning, cancelScan, selectBackend } = useLanScanner();
+  const [selected, setSelected] = useState(sessionStorage.getItem("karayouke_backend_url") || "");
 
   const handleSelect = (url) => {
     selectBackend(url);
     setSelected(url);
+    if (onSelect) onSelect(url);
   };
 
   return (
     <div style={{ padding: "2rem", fontFamily: "Arial", color: "white", background: "#111", minHeight: "100vh" }}>
-      <h2>🎤 Karayouke LAN Server Scanner</h2>
+      <h2>🛰️ Karayouke LAN Scanner</h2>
 
-      <button onClick={handleScan} disabled={scanning} style={{ padding: "0.5rem 1rem", marginBottom: "1rem" }}>
-        {scanning ? "🔄 Scanning..." : "Scan for Servers"}
-      </button>
+      <div style={{ marginBottom: "1rem" }}>
+        <button onClick={scan} disabled={scanning} style={{ padding: "0.5rem 1rem", marginRight: "1rem" }}>
+          {scanning ? "Scanning..." : "Scan for Servers"}
+        </button>
+        {scanning && (
+          <button onClick={cancelScan} style={{ padding: "0.5rem 1rem", backgroundColor: "#ff4444", color: "#fff" }}>
+            Cancel Scan
+          </button>
+        )}
+      </div>
 
       {scanning && (
-        <div style={{ marginBottom: "1rem", display: "flex", alignItems: "center" }}>
+        <div style={{ display: "flex", alignItems: "center", marginBottom: "1rem" }}>
           <div
             style={{
               width: 24,
@@ -39,16 +40,11 @@ const ServerScannerTest = () => {
               marginRight: "0.5rem",
             }}
           />
-          <span>Searching for servers...</span>
+          <span>Scanning network...</span>
         </div>
       )}
 
-      <style>
-        {`@keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }`}
-      </style>
+      <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); }}`}</style>
 
       <div>
         <strong>Currently selected backend:</strong>
@@ -58,8 +54,8 @@ const ServerScannerTest = () => {
       </div>
 
       <div>
-        <h4>📡 Found Servers:</h4>
-        {results.length === 0 && !scanning ? (
+        <h4>🌐 Found Servers:</h4>
+        {results.length === 0 ? (
           <p>No servers found.</p>
         ) : (
           <ul style={{ listStyle: "none", paddingLeft: 0 }}>
@@ -89,4 +85,4 @@ const ServerScannerTest = () => {
   );
 };
 
-export default ServerScannerTest;
+export default LanScanner;
