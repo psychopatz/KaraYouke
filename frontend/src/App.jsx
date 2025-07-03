@@ -10,8 +10,9 @@ import HostPage from './pages/HostPage';
 import ProfileCreationPage from './pages/ProfileCreationPage'; 
 import ProfileCheckLayout from './layout/ProfileCheckLayout'; 
 import JoinRoomPage from './pages/JoinRoomPage';
+import RemoteRouteGuard from './layout/RemoteRouteGuard';
+import RemotePage from './pages/RemotePage'; 
 
-import SessionTest from './pages/SessionTest'; 
 
 
 // A dark theme for our Karaoke App
@@ -52,8 +53,7 @@ function App() {
           {/* This route is for creating a profile. It MUST be outside the check. */}
           <Route path="/create-profile" element={<ProfileCreationPage />} />
 
-          {/* Your testing route, kept outside the check for easy access. */}
-          <Route path="/sessiontest" element={<SessionTest />} />
+
 
 
           {/* --- "Protected" Routes --- */}
@@ -64,7 +64,10 @@ function App() {
             <Route path="/" element={<LandingPage />} />
             <Route path="/create-room" element={<HostPage />} />
             <Route path="/join-room/:sessionCode?" element={<JoinRoomPage />} />
-            {/* Note: In LandingPage.jsx, ensure the "Start Session" button now navigates to "/create-room" */}
+            {/* NEW: NESTED ROUTE FOR REMOTE */}
+            <Route element={<RemoteRouteGuard />}>
+              <Route path="/remote" element={<RemotePage />} />
+            </Route>
           </Route>
 
         </Routes>

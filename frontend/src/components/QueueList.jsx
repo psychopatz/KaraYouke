@@ -1,26 +1,44 @@
-import React from "react";
+// src/components/QueueList.jsx
+import React from 'react';
+import { List, ListItem, ListItemAvatar, Avatar, ListItemText, IconButton, Typography, Box } from '@mui/material';
+import DeleteIcon from '@mui/icons-material/Delete';
+import MusicNoteIcon from '@mui/icons-material/MusicNote';
 
-const QueueList = ({ queue, onRemove }) => (
-  <>
-    <h4>🎶 Current Queue:</h4>
-    {queue.length === 0 ? (
-      <p>No songs in queue.</p>
-    ) : (
-      <ul style={{ listStyle: "none", padding: 0 }}>
-        {queue.map((song) => (
-          <li key={song.song_id} style={{ marginBottom: "1.5rem", borderBottom: "1px solid #444", paddingBottom: "1rem" }}>
-            <div><strong>{song.title}</strong> ({song.duration})</div>
-            <div style={{ display: "flex", gap: "1rem", marginTop: "0.5rem" }}>
-              {song.thumbnails.map((thumb, idx) => (
-                <img key={idx} src={thumb} alt="thumb" width={100} style={{ borderRadius: "6px" }} />
-              ))}
-            </div>
-            <button onClick={() => onRemove(song.song_id)} style={{ marginTop: "0.5rem" }}>❌ Remove</button>
-          </li>
-        ))}
-      </ul>
-    )}
-  </>
-);
+const QueueList = ({ queue, currentUser, onRemoveSong }) => {
+  return (
+    <Box mt={4}>
+      <Typography variant="h5" gutterBottom>
+        Up Next ({queue.length})
+      </Typography>
+      {queue.length === 0 ? (
+        <Typography color="text.secondary">The queue is empty. Add a song!</Typography>
+      ) : (
+        <List>
+          {queue.map((song, index) => (
+            <ListItem
+              key={`${song.song_id}-${index}`}
+              secondaryAction={
+                // Only show delete button if the user added the song
+                currentUser.id === song.added_by && (
+                  <IconButton edge="end" aria-label="delete" onClick={() => onRemoveSong(song.song_id)}>
+                    <DeleteIcon />
+                  </IconButton>
+                )
+              }
+            >
+              <ListItemAvatar>
+                {index === 0 ? <Avatar sx={{bgcolor: 'primary.main'}}><MusicNoteIcon /></Avatar> : <Avatar>{index + 1}</Avatar>}
+              </ListItemAvatar>
+              <ListItemText
+                primary={song.title}
+                secondary={`Added by ${song.added_by === currentUser.id ? 'You' : 'Someone Else'}`}
+              />
+            </ListItem>
+          ))}
+        </List>
+      )}
+    </Box>
+  );
+};
 
 export default QueueList;
