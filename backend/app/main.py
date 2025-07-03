@@ -14,7 +14,7 @@ fastapi_app = FastAPI()
 
 fastapi_app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Frontend origin
+    allow_origins=["https://karayouke.vercel.app/","*"],  
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

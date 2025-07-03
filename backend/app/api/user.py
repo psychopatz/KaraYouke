@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from app.api.session import SESSIONS
-from app.sockets.socket_server import sio  # ✅ Import Socket.IO server
+from app.sockets.socket_server import sio 
 
 router = APIRouter()
 
@@ -12,7 +12,7 @@ class JoinRequest(BaseModel):
     avatar_base64: str
 
 @router.post("/join", tags=["User"], summary="Join Session", description="Allows a remote user to join a session by sending ID, name, and base64 avatar.")
-async def join_session(user: JoinRequest):  # ✅ Make async
+async def join_session(user: JoinRequest):  
     code = user.session_code
 
     if code not in SESSIONS:
