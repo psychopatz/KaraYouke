@@ -24,21 +24,26 @@ fastapi_app = FastAPI()
 
 # CORS middleware setup based on DEBUG value
 if DEBUG:
+    # In DEBUG mode, allow all origins but don't allow credentials
     fastapi_app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],  # Allow all origins in DEBUG mode
-        allow_credentials=True,
+        allow_credentials=False,  # Credentials not allowed in debug mode
         allow_methods=["*"],
         allow_headers=["*"],
     )
 else:
-    fastapi_app.add_middleware(
-        CORSMiddleware,
-        allow_origins=origins if origins else ["*"],  # Use ALLOWED_ORIGINS or "*" if empty
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+    # In production, use the specified origins and allow credentials
+    if origins:
+        fastapi_app.add_middleware(
+            CORSMiddleware,
+            allow_origins=origins,  # Allow only specific origins in production
+            allow_credentials=True,  # Allow credentials in production
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+    else:
+        raise ValueError("ALLOWED_ORIGINS is not set in the .env file")
 
 # Register API routes
 fastapi_app.include_router(youtube_router, prefix="/api/youtube")
