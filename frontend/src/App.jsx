@@ -6,7 +6,8 @@ import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
 
 // Import Pages
 import LandingPage from './pages/LandingPage';
-import RemoteQueue from './pages/RemoteQueue'; // Assuming this exists for the placeholder
+import SessionTest from './pages/SessionTest'; 
+import HostPage from './pages/HostPage';
 
 // A dark theme for our Karaoke App
 const darkTheme = createTheme({
@@ -43,17 +44,11 @@ function App() {
       <CssBaseline />
       <Router>
         <Routes>
-          {/* Route 1: The Landing Page (our entry point) */}
           <Route path="/" element={<LandingPage />} />
+          <Route path="/create-room" element={<HostPage/>} />
+          <Route path="/sessiontest" element={<SessionTest/>} />
 
-          {/* Route 2: Placeholder for the Host/Main Screen */}
-          <Route path="/host" element={<div>Host Screen Page - To Be Built</div>} />
 
-          {/* Route 3: Placeholder for the Remote/Controller Screen */}
-          <Route path="/remote" element={<RemoteQueue />} />
-          
-          {/* You can add a 404 Not Found page here later */}
-          {/* <Route path="*" element={<NotFoundPage />} /> */}
         </Routes>
       </Router>
     </ThemeProvider>

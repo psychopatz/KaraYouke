@@ -42,7 +42,7 @@ const LandingPage = () => {
   const navigate = useNavigate();
 
   const handleStartSession = () => {
-    navigate('/host');
+    navigate('/create-room');
   };
 
   const handleJoinSession = () => {
