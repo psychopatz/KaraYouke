@@ -1,107 +1,81 @@
 // src/components/KaraokeOverlay.jsx
 import React from 'react';
-import { Box, List, ListItem, ListItemText, Avatar, AvatarGroup, Typography } from '@mui/material';
+import { Box, Typography, Paper } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import MusicNoteIcon from '@mui/icons-material/MusicNote';
-import QueueMusicIcon from '@mui/icons-material/QueueMusic';
 
-const OverlayRoot = styled(Box)({
-  position: 'fixed',
-  top: 0,
-  left: 0,
+// Import our utilities and the new, self-contained NowPlayingCard
+import { sanitizeTitle } from '../utils/textUtils';
+import { getUserData } from '../utils/userUtils';
+import NowPlayingCard from './NowPlayingCard';
+
+// The main container that will be positioned by the page.
+const TopOverlayContainer = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  flexDirection: 'row',
+  alignItems: 'stretch',
+  gap: theme.spacing(2),
+  height: '75px',
   width: '100%',
-  height: '100%',
+}));
+
+// A wrapper for the scrollable "Up Next" queue.
+const ScrollableQueueWrapper = styled(Box)(({ theme }) => ({
+  flexGrow: 1,
+  minWidth: 0,
+  display: 'flex',
+  alignItems: 'stretch',
+  gap: theme.spacing(2),
+  overflowX: 'auto',
+  overflowY: 'hidden',
+  '&::-webkit-scrollbar': { height: '6px' },
+  '&::-webkit-scrollbar-track': { background: 'rgba(0,0,0,0.2)' },
+  '&::-webkit-scrollbar-thumb': { background: theme.palette.primary.dark, borderRadius: '3px' },
+}));
+
+// Styling for the items in the "Up Next" queue
+const UpNextItem = styled(Paper)({
+  flexShrink: 0,
+  padding: '8px 12px',
+  borderRadius: 0,
   display: 'flex',
   flexDirection: 'column',
-  justifyContent: 'space-between',
-  padding: '2rem',
-  pointerEvents: 'none',
-  color: 'white',
-  textShadow: '1px 1px 3px rgba(0,0,0,0.7)',
-  // --- THE FIX IS HERE ---
-  // Explicitly set a higher z-index to ensure this overlay
-  // always renders on top of the video player.
-  zIndex: 10,
+  justifyContent: 'center',
+  textAlign: 'center',
+  width: '280px',
+  overflow: 'hidden',
+  height: '100%',
+  backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  border: '2px solid transparent',
 });
 
-const QueueContainer = styled(Box)({
-  alignSelf: 'flex-start',
-  backgroundColor: 'rgba(0,0,0,0.6)',
-  backdropFilter: 'blur(5px)',
-  borderRadius: '8px',
-  padding: '1rem',
-  maxWidth: '35%',
-  minWidth: '300px',
-});
-
-const UsersContainer = styled(Box)({
-  alignSelf: 'center',
-  backgroundColor: 'rgba(0,0,0,0.6)',
-  backdropFilter: 'blur(5px)',
-  borderRadius: '50px',
-  padding: '0.5rem 1.5rem',
-  display: 'flex',
-  alignItems: 'center',
-  gap: '1rem',
-});
-
-const HeaderBox = styled(Box)({
-    display: 'flex',
-    alignItems: 'center',
-    gap: 1,
-    marginBottom: '0.5rem',
-});
 
 const KaraokeOverlay = ({ queue, users }) => {
-  const nowPlaying = queue && queue.length > 0 ? queue[0] : null;
-  const upNext = queue ? queue.slice(1, 6) : [];
+  const nowPlaying = queue.length > 0 ? queue[0] : null;
+  const upNext = queue.slice(1);
+  const nowPlayingUser = nowPlaying ? getUserData(nowPlaying.added_by, users) : null;
 
   return (
-    <OverlayRoot>
-      <QueueContainer>
-        {nowPlaying ? (
-          <>
-            <HeaderBox>
-              <MusicNoteIcon sx={{ color: 'primary.main' }} />
-              <Typography variant="h6">Now Playing</Typography>
-            </HeaderBox>
-            <Typography variant="body1" noWrap sx={{ pl: 4, mb: 2, fontWeight: 'bold' }}>
-              {nowPlaying.title}
-            </Typography>
-          </>
-        ) : (
-            <HeaderBox>
-                <QueueMusicIcon />
-                <Typography variant="h6">Queue is empty</Typography>
-            </HeaderBox>
-        )}
+    <TopOverlayContainer>
+      {/* --- RENDER THE NEW SELF-CONTAINED CARD --- */}
+      <NowPlayingCard song={nowPlaying} user={nowPlayingUser} />
 
-        {upNext.length > 0 && (
-          <>
-            <HeaderBox>
-              <QueueMusicIcon />
-              <Typography variant="h6">Up Next</Typography>
-            </HeaderBox>
-            <List dense sx={{ pt: 0, pl: 4 }}>
-              {upNext.map((song) => (
-                <ListItem key={song.song_id} disablePadding>
-                  <ListItemText primary={song.title} primaryTypographyProps={{ noWrap: true, variant: 'body2' }} />
-                </ListItem>
-              ))}
-            </List>
-          </>
-        )}
-      </QueueContainer>
-      
-      <UsersContainer>
-        <Typography>Remotes Active:</Typography>
-        <AvatarGroup max={8}>
-          {users.map(user => (
-            <Avatar key={user.id} alt={user.name} src={user.avatarBase64} />
-          ))}
-        </AvatarGroup>
-      </UsersContainer>
-    </OverlayRoot>
+      {/* --- RENDER THE SCROLLABLE QUEUE --- */}
+      <ScrollableQueueWrapper>
+        {upNext.map((song, index) => {
+          const songUser = getUserData(song.added_by, users);
+          return (
+            <UpNextItem key={song.song_id} elevation={1}>
+              <Typography noWrap>
+                {index + 1}. {sanitizeTitle(song.title)}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Added by {songUser.name}
+              </Typography>
+            </UpNextItem>
+          );
+        })}
+      </ScrollableQueueWrapper>
+    </TopOverlayContainer>
   );
 };
 

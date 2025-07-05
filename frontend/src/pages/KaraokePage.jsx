@@ -1,16 +1,52 @@
 // src/pages/KaraokePage.jsx
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import ReactPlayer from 'react-player';
 import { Box } from '@mui/material';
+import { styled } from '@mui/material/styles';
 
-import KaraokePlayer from '../components/KaraokePlayer'; // Using your reusable component
+// Import all independent UI components
+import KaraokePlayer from '../components/KaraokePlayer';
+import BrandingBanner from '../components/BrandingBanner';
+import NowPlayingCard from '../components/NowPlayingCard';
+import UpNextQueue from '../components/UpNextQueue';
+import ConnectedUsersBar from '../components/ConnectedUsersBar';
+import ScoreDisplay from '../components/ScoreDisplay';
+
+// Import hooks and utilities
 import socket from '../socket/socket';
 import { getSessionItem } from '../utils/sessionStorageUtils';
 import { getLocalItem } from '../utils/localStorageUtils';
-import KaraokeOverlay from '../components/KaraokeOverlay';
-import ScoreDisplay from '../components/ScoreDisplay';
+import { getUserData } from '../utils/userUtils';
 import useAudio from '../hooks/useAudio';
 
+// --- STYLED WRAPPERS FOR POSITIONING EACH COMPONENT ---
+
+// Wrapper to position the Now Playing Card at the top-left.
+const FixedNowPlayingWrapper = styled(Box)(({ theme }) => ({
+  position: 'fixed',
+  top: theme.spacing(2),
+  left: theme.spacing(2),
+  zIndex: 20,
+}));
+
+// Wrapper to position the Branding Banner at the bottom-left.
+const FixedBrandingWrapper = styled(Box)(({ theme }) => ({
+  position: 'fixed',
+  bottom: theme.spacing(2),
+  left: theme.spacing(2),
+  zIndex: 20,
+}));
+
+// Wrapper for the scrollable queue, positioned to the right of the Now Playing card.
+const FixedQueueWrapper = styled(Box)(({ theme }) => ({
+  position: 'fixed',
+  top: theme.spacing(2),
+  left: `calc(320px + ${theme.spacing(4)})`,
+  right: theme.spacing(2),
+  height: '75px',
+  zIndex: 10,
+}));
+
+// Define the default video as a "song object" for consistent logic
 const DEFAULT_VIDEO_ID = 'JXWElku3lCk';
 const DEFAULT_SONG_OBJECT = {
   song_id: DEFAULT_VIDEO_ID,
@@ -19,10 +55,7 @@ const DEFAULT_SONG_OBJECT = {
 };
 
 const KaraokePage = () => {
-  const session = useMemo(() => getSessionItem('kara_youke_session'), []);
-  const hostUser = useMemo(() => getLocalItem('kara_youke_user'), []);
-  const sessionCode = session?.code;
-
+  // --- STATE MANAGEMENT ---
   const [queue, setQueue] = useState([]);
   const [users, setUsers] = useState([]);
   const [currentSong, setCurrentSong] = useState(DEFAULT_SONG_OBJECT);
@@ -30,22 +63,28 @@ const KaraokePage = () => {
   const [isPlaying, setIsPlaying] = useState(true);
   const [, playScoreSound] = useAudio('/Sounds/videokeScore.mp3');
   const songThatEnded = useRef(null);
+  
+  const session = useMemo(() => getSessionItem('kara_youke_session'), []);
+  const hostUser = useMemo(() => getLocalItem('kara_youke_user'), []);
+  const sessionCode = session?.code;
 
-  // Socket logic (unchanged)
+  // --- EFFECT HOOKS ---
   useEffect(() => {
     if (!sessionCode) return;
     const handleQueueUpdate = (newQueue) => setQueue(newQueue);
     const handleUsersUpdate = (newUsers) => setUsers(newUsers);
+    
     socket.on('queue_updated', handleQueueUpdate);
     socket.on('users_updated', handleUsersUpdate);
+    
     socket.emit('get_session_info', sessionCode);
+    
     return () => {
       socket.off('queue_updated', handleQueueUpdate);
       socket.off('users_updated', handleUsersUpdate);
     };
   }, [sessionCode]);
 
-  // Main playback logic (unchanged)
   useEffect(() => {
     const activeSong = queue.length > 0 ? queue[0] : DEFAULT_SONG_OBJECT;
     setCurrentSong(activeSong);
@@ -55,37 +94,48 @@ const KaraokePage = () => {
     }
   }, [queue, finishedSinger, isPlaying]);
 
-  // Event handler for when a song finishes - REVISED
+  // --- EVENT HANDLERS ---
   const handleSongEnded = () => {
-    if (currentSong?.added_by !== 'system') {
-      songThatEnded.current = currentSong;
-      const singer = users.find(u => u.id === currentSong?.added_by);
-      setFinishedSinger(singer || { name: "A former user", avatarBase64: null });
+    if (currentSong?.added_by === 'system') return;
 
-      // --- THIS IS THE CORE OF THE FIX ---
-      // We play the sound and pass it a function to execute ONLY when it's done.
-      playScoreSound(() => {
-        console.log("Score audio finished. Advancing to the next song.");
-        
-        // This is the logic that used to be in `onScoreFinished`.
-        const songToRemove = songThatEnded.current;
-        if (hostUser && sessionCode && songToRemove) {
-          socket.emit('remove_song', {
-              session_code: sessionCode,
-              song_id: songToRemove.song_id,
-              user_id: hostUser.id,
-          });
-        }
-        
-        // Hide the score display and allow the player to resume.
-        setFinishedSinger(null); 
-        songThatEnded.current = null;
-      });
-    }
+    songThatEnded.current = currentSong;
+    const singer = getUserData(currentSong?.added_by, users);
+    setFinishedSinger(singer);
+
+    playScoreSound(() => {
+      const songToRemove = songThatEnded.current;
+      if (hostUser && sessionCode && songToRemove) {
+        socket.emit('remove_song', {
+            session_code: sessionCode,
+            song_id: songToRemove.song_id,
+            user_id: hostUser.id,
+        });
+      }
+      setFinishedSinger(null);
+      songThatEnded.current = null;
+    });
   };
 
+  const nowPlaying = queue.length > 0 ? queue[0] : null;
+  const nowPlayingUser = nowPlaying ? getUserData(nowPlaying.added_by, users) : null;
+  
+  // --- RENDER ---
   return (
     <Box>
+      <FixedNowPlayingWrapper>
+        <NowPlayingCard song={nowPlaying} user={nowPlayingUser} />
+      </FixedNowPlayingWrapper>
+      
+      <FixedBrandingWrapper>
+        <BrandingBanner />
+      </FixedBrandingWrapper>
+      
+      <FixedQueueWrapper>
+        <UpNextQueue queue={queue} users={users} />
+      </FixedQueueWrapper>
+
+      <ConnectedUsersBar users={users} />
+
       <KaraokePlayer
         song={currentSong}
         isPlaying={isPlaying}
@@ -95,13 +145,7 @@ const KaraokePage = () => {
         onError={(e) => console.error('[Player Callback] onError fired:', e)}
       />
       
-      <KaraokeOverlay queue={queue} users={users} />
-
-      {/* The ScoreDisplay component no longer needs an onFinished prop for this logic. */}
-      {/* It's now just a simple visual component. */}
-      {finishedSinger && (
-        <ScoreDisplay user={finishedSinger} />
-      )}
+      {finishedSinger && <ScoreDisplay user={finishedSinger} />}
     </Box>
   );
 };
