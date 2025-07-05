@@ -12,6 +12,7 @@ import ProfileCheckLayout from './layout/ProfileCheckLayout';
 import JoinRoomPage from './pages/JoinRoomPage';
 import RemoteRouteGuard from './layout/RemoteRouteGuard';
 import RemotePage from './pages/RemotePage'; 
+import KaraokePage from './pages/KaraokePage';
 
 
 
@@ -64,6 +65,8 @@ function App() {
             <Route path="/" element={<LandingPage />} />
             <Route path="/create-room" element={<HostPage />} />
             <Route path="/join-room/:sessionCode?" element={<JoinRoomPage />} />
+            <Route path="/karaoke" element={<KaraokePage />} />
+
             {/* NEW: NESTED ROUTE FOR REMOTE */}
             <Route element={<RemoteRouteGuard />}>
               <Route path="/remote" element={<RemotePage />} />

@@ -46,7 +46,7 @@ const UserInfoBox = styled(Box)({
 
 const ProfileCreationPage = () => {
   const [name, setName] = useState('');
-  const [selectedAvatar, setSelectedAvatar] = useState('/Avatars/1.svg'); // Default avatar
+  const [selectedAvatar, setSelectedAvatar] = useState(''); 
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
@@ -61,7 +61,7 @@ const ProfileCreationPage = () => {
     const userData = {
       id: uuidv4(),
       name: name.trim(),
-      avatar_base64: selectedAvatar, // Saving the path here as discussed
+      avatarBase64: selectedAvatar, // Saving the path here as discussed
     };
 
     // Save to localStorage using our utility

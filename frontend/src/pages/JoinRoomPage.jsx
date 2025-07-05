@@ -120,7 +120,7 @@ const JoinRoomPage = () => {
         session_code: code,
         id: userData.id,
         name: userData.name,
-        avatar_base64: userData.avatar_base64,
+        avatarBase64: userData.avatarBase64,
       });
 
       if (response.status === 'OK') {

@@ -1,6 +1,6 @@
 # File: backend/app/sockets/core.py
-from app.api.session import SESSIONS
 from app.sockets.socket_server import sio
+from app.state import SESSIONS
 
 connected_clients = {}
 

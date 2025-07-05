@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from app.api.session import SESSIONS
+from app.state import SESSIONS
 from app.sockets.socket_server import sio 
 
 router = APIRouter()
@@ -9,9 +9,13 @@ class JoinRequest(BaseModel):
     session_code: str
     id: str
     name: str
-    avatar_base64: str
+    # --- THIS IS THE FIX ---
+    # 1. We make the field optional by adding `| None`.
+    # 2. We provide a default value if the frontend doesn't send it at all.
+    avatarBase64: str | None = "/Avatars/1.svg"
 
-@router.post("/join", tags=["User"], summary="Join Session", description="Allows a remote user to join a session by sending ID, name, and base64 avatar.")
+
+@router.post("/join", tags=["User"], summary="Join Session")
 async def join_session(user: JoinRequest):  
     code = user.session_code
 
@@ -26,14 +30,14 @@ async def join_session(user: JoinRequest):
             "user": existing[0]
         }
 
+    # If the avatar was missing and the default was used, ensure it's in the entry.
     user_entry = {
         "id": user.id,
         "name": user.name,
-        "avatar_base64": user.avatar_base64
+        "avatarBase64": user.avatarBase64 or "/Avatars/1.svg"
     }
     SESSIONS[code]["users"].append(user_entry)
 
-    # ✅ Emit real-time events to all in the room (session)
     await sio.emit("join_remote", user_entry, room=code)
     await sio.emit("users_updated", SESSIONS[code]["users"], room=code)
 

@@ -16,7 +16,7 @@ export default function useAutoConnect(sessionCode) {
           session_code: sessionCode,
           id: USER_ID,
           name: USER_NAME,
-          avatar_base64: "",
+          avatarBase64: "",
         });
 
         socket.emit("join_room", sessionCode);

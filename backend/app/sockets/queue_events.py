@@ -1,6 +1,7 @@
 # File: backend/app/sockets/queue_events.py
-from app.api.session import SESSIONS
 from app.sockets.socket_server import sio
+from app.state import SESSIONS
+
 
 @sio.event
 async def add_song(sid, data):

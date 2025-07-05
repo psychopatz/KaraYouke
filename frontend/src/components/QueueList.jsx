@@ -19,11 +19,11 @@ const QueueList = ({ queue, currentUser, onRemoveSong, connectedUsers }) => {
 
   const getAddedByDisplayData = (userId) => {
     if (userId === currentUser.id) {
-      return { name: 'You', avatar: currentUser.avatar_base64 };
+      return { name: 'You', avatar: currentUser.avatarBase64 };
     }
     const user = userMap.get(userId);
     return user
-      ? { name: user.name, avatar: user.avatar_base64 }
+      ? { name: user.name, avatar: user.avatarBase64 }
       : { name: 'A former user', avatar: null };
   };
 

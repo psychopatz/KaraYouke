@@ -16,3 +16,13 @@ export const createSession = async () => {
     throw error;
   }
 };
+
+export const deleteSession = async (sessionCode) => {
+  try {
+    const response = await axiosClient.delete(`/session/${sessionCode}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Failed to delete session ${sessionCode}:`, error);
+    throw error;
+  }
+};

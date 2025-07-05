@@ -53,7 +53,7 @@ const ConnectedUsersList = ({ users, onKick }) => {
           {users.map((user) => (
             <UserListItem key={user.uuid || user.id}> {/* Use uuid or id for key */}
               <ListItemAvatar>
-                <Avatar src={user.avatar_base64} alt={user.name} />
+                <Avatar src={user.avatarBase64} alt={user.name} />
               </ListItemAvatar>
               <ListItemText 
                 primary={user.name} 
