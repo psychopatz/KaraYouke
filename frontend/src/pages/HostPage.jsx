@@ -1,23 +1,36 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Box, Button, CircularProgress, Typography, IconButton, Tooltip } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
+import {
+  Box,
+  Button,
+  CircularProgress,
+  Typography,
+  IconButton,
+  Tooltip,
+  TextField,
+  InputAdornment,
+} from '@mui/material';
 import { styled } from '@mui/material/styles';
+
+// Icon Imports
 import QrCode2Icon from '@mui/icons-material/QrCode2';
 import PlayCircleFilledWhiteIcon from '@mui/icons-material/PlayCircleFilledWhite';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import { useNavigate } from 'react-router-dom';
+import Visibility from '@mui/icons-material/Visibility';
+import VisibilityOff from '@mui/icons-material/VisibilityOff';
 
-// Import all necessary API and utility functions
+// API and Utility Imports
 import { createSession, deleteSession, validateSession } from '../api/sessionApi';
-import { joinSession } from '../api/userApi';
+import { joinSession } from '../api/userApi'; // Correctly imported from userApi
 import { setLocalItem, getLocalItem, removeLocalItem } from '../utils/localStorageUtils';
 import { setSessionItem } from '../utils/sessionStorageUtils';
 
-// Import Components and Socket
+// Component and Socket Imports
 import QRCodeDisplay from '../components/QRCodeDisplay';
 import ConnectedUsersList from '../components/ConnectedUsersList';
 import socket from '../socket/socket';
 
-// Use localStorage for persistence across browser sessions
+// Constants
 const HOST_SESSION_KEY = 'kara_youke_host_session';
 
 // --- Styled Components ---
@@ -38,8 +51,10 @@ const ContentWrapper = styled(Box)({
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
-  gap: '2rem',
+  gap: '1.5rem',
   textAlign: 'center',
+  maxWidth: '500px',
+  width: '100%',
 });
 
 const QRCodeWrapper = styled(Box)({
@@ -54,39 +69,33 @@ const RefreshButtonWrapper = styled(Box)({
 });
 // --- End Styled Components ---
 
-
 const HostPage = () => {
   const navigate = useNavigate();
   const [sessionCode, setSessionCode] = useState(null);
-  const [isLoading, setIsLoading] = useState(true); // Start loading to check for a session
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [connectedUsers, setConnectedUsers] = useState([]);
   
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  
   const hostUser = useMemo(() => getLocalItem('kara_youke_user'), []);
 
-  // This effect handles all socket communication for the HostPage
+  // Socket effect (unchanged)
   useEffect(() => {
     if (!sessionCode) return;
-
-    // This handler listens for the unified session update event from the backend
     const handleSessionUpdate = (sessionData) => {
         if (sessionData && Array.isArray(sessionData.users)) {
             setConnectedUsers(sessionData.users);
         }
     };
-    
-    // Also listen to the old event for compatibility if needed, though session_updated is preferred
     const handleUsersUpdate = (users) => {
         if (Array.isArray(users)) {
             setConnectedUsers(users);
         }
     };
-
     socket.on('session_updated', handleSessionUpdate);
     socket.on('users_updated', handleUsersUpdate);
-
-    // When the host connects or reconnects, get the full session data
-    // to populate the user list correctly.
     if(socket.connected) {
         socket.emit('get_full_session', sessionCode);
     } else {
@@ -94,7 +103,6 @@ const HostPage = () => {
             socket.emit('get_full_session', sessionCode);
         });
     }
-
     return () => {
         socket.off('session_updated', handleSessionUpdate);
         socket.off('users_updated', handleUsersUpdate);
@@ -114,12 +122,13 @@ const HostPage = () => {
     }
   }, []);
 
+  // Session restoration effect (unchanged)
   useEffect(() => {
     const attemptRestoreSession = async () => {
       const savedSession = getLocalItem(HOST_SESSION_KEY);
       if (savedSession?.code && savedSession?.role === 'host') {
-        const isValid = await validateSession(savedSession.code);
-        if (isValid) {
+        const { valid } = await validateSession(savedSession.code);
+        if (valid) {
           setSessionCode(savedSession.code);
           registerAsHost(savedSession.code);
         } else {
@@ -131,6 +140,8 @@ const HostPage = () => {
     attemptRestoreSession();
   }, [registerAsHost]);
 
+
+  // --- MODIFIED: `handleCreateSession` now sends password on join ---
   const handleCreateSession = async () => {
     setIsLoading(true);
     setError('');
@@ -141,29 +152,40 @@ const HostPage = () => {
     }
 
     try {
-      const sessionData = await createSession();
+      const sessionData = await createSession({ password: password || null });
+
       if (sessionData.session_code) {
         const newSessionCode = sessionData.session_code;
         const hostUserEntry = { id: hostUser.id, name: hostUser.name, avatarBase64: hostUser.avatarBase64 };
         
-        await joinSession({ session_code: newSessionCode, ...hostUserEntry });
+        // --- THIS IS THE FIX ---
+        // The host must provide the password to join their own protected session.
+        await joinSession({
+          session_code: newSessionCode,
+          password: password || null, // Add the password here!
+          ...hostUserEntry
+        });
+        // --- END FIX ---
         
         setSessionCode(newSessionCode);
-        setLocalItem(HOST_SESSION_KEY, { code: newSessionCode, role: 'host' });
+        setLocalItem(HOST_SESSION_KEY, { code: newSessionCode, role: 'host', password: password || null });
         registerAsHost(newSessionCode);
-        setConnectedUsers([hostUserEntry]); // Immediately show the host in the list
+        setConnectedUsers([hostUserEntry]);
 
       } else {
         throw new Error('No session code received from server.');
       }
     } catch (err) {
       console.error("Error creating session:", err);
-      setError('Could not create session. Please try again.');
+      // Make the error message more user-friendly
+      const errorDetail = err.response?.data?.detail || 'Please try again.';
+      setError(`Could not create session. ${errorDetail}`);
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Unchanged functions below...
   const handleRegenerateRoom = async () => {
     if (!sessionCode) return;
     setIsLoading(true);
@@ -203,6 +225,49 @@ const HostPage = () => {
         {!sessionCode ? (
           <>
             <Typography variant="h3" color="white" fontWeight="bold">Ready to Host?</Typography>
+
+            <TextField
+              label="Optional Room Password"
+              variant="filled"
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              fullWidth
+              sx={{ 
+                maxWidth: '400px', 
+                backgroundColor: 'rgba(255, 255, 255, 0.1)', 
+                borderRadius: 1,
+                '& .MuiInputBase-root': {
+                    backgroundColor: 'transparent',
+                },
+                '& .MuiFilledInput-root:hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                },
+                '& .MuiFilledInput-root.Mui-focused': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                },
+              }}
+              InputLabelProps={{
+                style: { color: 'rgba(255, 255, 255, 0.7)' },
+              }}
+              InputProps={{
+                style: { color: 'white' },
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="toggle password visibility"
+                      onClick={() => setShowPassword(!showPassword)}
+                      onMouseDown={(e) => e.preventDefault()}
+                      edge="end"
+                      sx={{ color: 'white' }}
+                    >
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+            
             <Button
               variant="contained" color="primary" size="large" onClick={handleCreateSession} disabled={isLoading}
               startIcon={isLoading ? <CircularProgress size={24} color="inherit" /> : <QrCode2Icon />}
@@ -210,7 +275,7 @@ const HostPage = () => {
             >
               {'Create Room'}
             </Button>
-            {error && <Typography color="error">{error}</Typography>}
+            {error && <Typography color="error" sx={{ mt: 1 }}>{error}</Typography>}
           </>
         ) : (
           <>
@@ -220,7 +285,7 @@ const HostPage = () => {
                 <Tooltip title="Create a New Room">
                   <span>
                     <IconButton onClick={handleRegenerateRoom} disabled={isLoading}>
-                      <RefreshIcon />
+                      <RefreshIcon sx={{ color: 'white' }} />
                     </IconButton>
                   </span>
                 </Tooltip>

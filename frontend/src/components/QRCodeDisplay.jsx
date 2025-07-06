@@ -1,9 +1,9 @@
 // src/components/QRCodeDisplay.jsx
 
 import React from 'react';
-import QRCode from 'react-qr-code';
-import { Box, Typography, Paper } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import { styled } from '@mui/material/styles';
+import DynamicQRCode from './DynamicQRCode'; // <-- Import our new reusable component
 
 const QRCodeContainer = styled(Box)({
   display: 'flex',
@@ -13,37 +13,32 @@ const QRCodeContainer = styled(Box)({
   padding: '1rem',
 });
 
-// A white background is crucial for QR code scannability.
-const QRWrapper = styled(Paper)({
-  padding: '16px',
-  backgroundColor: 'white',
-  display: 'inline-block',
-});
+// The old QRWrapper component is no longer needed and can be deleted.
 
 const QRCodeDisplay = ({ sessionCode }) => {
   if (!sessionCode) {
     return null;
   }
 
-  // Construct the URL for the QR code
   const joinUrl = `${import.meta.env.VITE_FRONTEND_BASE}/join-room/${sessionCode}`;
-  // NOTE: Changed from VITE_BACKEND_BASE. Users should be directed to your frontend join page.
 
   return (
     <QRCodeContainer>
       <Typography variant="h6">Scan to Join!</Typography>
-      <QRWrapper elevation={4}>
-        <QRCode
-          value={joinUrl}
-          size={200} // Adjust size as needed
-        />
-      </QRWrapper>
+      
+      {/* Use the new dynamic component here */}
+      <DynamicQRCode
+        value={joinUrl}
+        size={200}
+        sx={{ boxShadow: 4 }} // We can pass MUI sx props for styling, like the shadow.
+      />
+
       <Typography 
         variant="h4" 
         component="p"
         sx={{
           fontWeight: 'bold',
-          letterSpacing: '0.2em', // Spreads out the letters
+          letterSpacing: '0.2em',
           padding: '8px 16px',
           border: '1px solid grey',
           borderRadius: '4px',

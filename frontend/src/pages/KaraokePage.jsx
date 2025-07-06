@@ -10,6 +10,7 @@ import UpNextQueue from '../components/UpNextQueue';
 import ConnectedUsersBar from '../components/ConnectedUsersBar';
 import ScoreDisplay from '../components/ScoreDisplay';
 import FullScreenMessage from '../components/FullScreenMessage';
+import DynamicQRCode from '../components/DynamicQRCode'; // Import the dynamic QR component
 
 // Import hooks, socket, and utilities
 import socket from '../socket/socket';
@@ -34,9 +35,19 @@ const FixedBrandingWrapper = styled(Box)(({ theme }) => ({
   zIndex: 20,
 }));
 
+// A dedicated wrapper for the QR Code to float directly above the BrandingBanner.
+const FixedQRCodeWrapper = styled(Box)(({ theme }) => ({
+  position: 'fixed',
+  // Adjust this value based on the final height of your BrandingBanner
+  bottom: '50px',
+  left: theme.spacing(9),
+  zIndex: 20,
+}));
+
 const FixedQueueWrapper = styled(Box)(({ theme }) => ({
   position: 'fixed',
   top: theme.spacing(2),
+  // Positioned next to the NowPlayingCard
   left: `calc(320px + ${theme.spacing(4)})`,
   right: theme.spacing(2),
   height: '75px',
@@ -60,7 +71,7 @@ const KaraokePage = () => {
   const [isPlaying, setIsPlaying] = useState(true);
   const [message, setMessage] = useState(null);
   const [playerKey, setPlayerKey] = useState(Date.now());
-  const [showScore, setShowScore] = useState(true); // Session-wide setting, defaults to true
+  const [showScore, setShowScore] = useState(true);
 
   // --- Refs and Hooks ---
   const lastShownSongId = useRef(null);
@@ -71,6 +82,11 @@ const KaraokePage = () => {
   const hostUser = useMemo(() => getLocalItem('kara_youke_user'), []);
   const sessionCode = session?.code;
 
+  // Define the URL for the QR code
+  const joinUrl = sessionCode
+    ? `${import.meta.env.VITE_FRONTEND_BASE}/join-room/${sessionCode}`
+    : '';
+
   // --- Handler for skipping a song without showing a score ---
   const handleSkipSong = () => {
     const songToSkip = queue[0];
@@ -78,7 +94,7 @@ const KaraokePage = () => {
     socket.emit('remove_song', {
       session_code: sessionCode,
       queue_id: songToSkip.queue_id,
-      user_id: songToSkip.added_by,
+      user_id: songToSkip.added_by, // Can be anyone for host skip
     });
   };
 
@@ -94,7 +110,7 @@ const KaraokePage = () => {
             setShowScore(sessionData.settings.showScore);
         }
     };
-    
+
     // Handler for live, single setting changes
     const handleSettingUpdate = ({ key, value }) => {
         if (key === 'showScore') setShowScore(value);
@@ -105,8 +121,10 @@ const KaraokePage = () => {
       switch (action) {
         case 'toggle_play_pause': setIsPlaying(prev => !prev); break;
         case 'next_song': if (queue.length > 0) handleSkipSong(); break;
+        default: break;
       }
     };
+
     const handleGetPlayerState = () => socket.emit('player_state_updated', { session_code: sessionCode, isPlaying });
 
     socket.on('session_updated', handleSessionUpdate);
@@ -120,7 +138,7 @@ const KaraokePage = () => {
       socket.off('get_player_state', handleGetPlayerState);
       socket.off('setting_updated', handleSettingUpdate);
     };
-  }, [sessionCode, isPlaying, queue]); // Dependencies are correct
+  }, [sessionCode, isPlaying, queue]);
 
   // --- Effect #2: Fetch Initial Data ONCE ---
   useEffect(() => {
@@ -140,8 +158,10 @@ const KaraokePage = () => {
     const activeSong = queue.length > 0 ? queue[0] : DEFAULT_SONG_OBJECT;
     if (activeSong.song_id !== currentSong.song_id) { setPlayerKey(Date.now()); }
     setCurrentSong(activeSong);
+
     const isRealSong = activeSong.added_by !== 'system';
     const hasIntroBeenShown = activeSong.song_id === lastShownSongId.current;
+
     if (isRealSong && !hasIntroBeenShown) {
       const singer = getUserData(activeSong.added_by, users);
       setMessage({ type: 'intro', title: sanitizeTitle(activeSong.title), subtitle: `Sung by ${singer?.name}`, icon: '🎵', duration: 5000 });
@@ -149,7 +169,7 @@ const KaraokePage = () => {
     } else if (!isRealSong && (!message || message.type !== 'welcome')) {
       setMessage({ type: 'welcome', duration: null });
     }
-  }, [queue, users, message, currentSong]); 
+  }, [queue, users, message, currentSong]);
 
   // --- Effect #5: Pause player during score screen ---
   useEffect(() => {
@@ -159,26 +179,21 @@ const KaraokePage = () => {
   // --- Event Handlers ---
   const handleSongEnded = () => {
     if (currentSong?.added_by === 'system') {
-      setPlayerKey(Date.now());
+      setPlayerKey(Date.now()); // Re-trigger the background video loop
       return;
     }
-    // Check the synchronized session-wide 'showScore' state variable.
+
     if (showScore) {
       songThatEnded.current = currentSong;
       const singer = getUserData(currentSong?.added_by, users);
       setFinishedSinger(singer);
     } else {
-      console.log(`Skipping score because the session setting is off.`);
-      socket.emit('remove_song', {
-        session_code: sessionCode,
-        queue_id: currentSong.queue_id,
-        user_id: currentSong.added_by,
-      });
+      handleSkipSong(); // If scores are off, just skip to the next song
     }
   };
-  
+
   const handleMessageFinished = () => setMessage(null);
-  
+
   const handleScoreAnimationComplete = () => {
     playScoreSound(() => {
       const songToRemove = songThatEnded.current;
@@ -199,23 +214,39 @@ const KaraokePage = () => {
       <FixedNowPlayingWrapper>
         <NowPlayingCard song={nowPlaying} user={nowPlayingUser} />
       </FixedNowPlayingWrapper>
-      {currentSong && currentSong.song_id !== DEFAULT_VIDEO_ID && (
-        <FixedBrandingWrapper><BrandingBanner size="small" /></FixedBrandingWrapper>
+
+      {/* The QR Code is now rendered independently and will always be visible as long as there is a session code. */}
+      {sessionCode && (
+        <FixedQRCodeWrapper>
+          <DynamicQRCode value={joinUrl} size={60} />
+        </FixedQRCodeWrapper>
       )}
+
+      {/* The branding banner remains conditional, only showing during a real song. */}
+      {currentSong && currentSong.song_id !== DEFAULT_VIDEO_ID && (
+        <FixedBrandingWrapper>
+          <BrandingBanner size="small" />
+        </FixedBrandingWrapper>
+      )}
+
       <FixedQueueWrapper><UpNextQueue queue={queue} users={users} /></FixedQueueWrapper>
       <ConnectedUsersBar users={users} />
+
       <KaraokePlayer
-        key={playerKey} 
+        key={playerKey}
         song={currentSong}
         isPlaying={isPlaying}
         isLooping={currentSong.song_id === DEFAULT_VIDEO_ID}
         showControls={false}
         onEnded={handleSongEnded}
         onError={(e) => console.error('[Player Callback] onError fired:', e)}
+        isMuted={currentSong.song_id === DEFAULT_VIDEO_ID}
       />
+
       {finishedSinger && (
         <ScoreDisplay user={finishedSinger} onCountUpFinished={handleScoreAnimationComplete} />
       )}
+
       <FullScreenMessage show={!!message} duration={message?.duration} onFinished={handleMessageFinished}>
         {message?.type === 'welcome' ? (
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>

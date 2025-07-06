@@ -20,7 +20,7 @@ const PlayerWrapper = {
   },
 };
 
-const KaraokePlayer = ({ song, isPlaying, isLooping, showControls, onEnded, onError }) => {
+const KaraokePlayer = ({ song, isPlaying, isLooping, showControls, onEnded, onError ,isMuted}) => {
   if (!song || !song.song_id) {
     return null;
   }
@@ -37,6 +37,7 @@ const KaraokePlayer = ({ song, isPlaying, isLooping, showControls, onEnded, onEr
         controls={showControls}
         onEnded={onEnded}
         onError={onError}
+        muted={isMuted}
         width="100%"
         height="100%"
         config={{

@@ -1,25 +1,27 @@
-// src/pages/JoinRoomPage.jsx
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { MuiOtpInput } from 'mui-one-time-password-input';
 
-// MUI Components
-import { Box, Button, Typography, Modal, CircularProgress, Alert } from '@mui/material';
+// MUI Component Imports
+import { Box, Button, Typography, Modal, CircularProgress, Alert, TextField, InputAdornment, IconButton } from '@mui/material';
 import { styled } from '@mui/material/styles';
+
+// Icon Imports
 import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import LoginIcon from '@mui/icons-material/Login';
+import Visibility from '@mui/icons-material/Visibility';
+import VisibilityOff from '@mui/icons-material/VisibilityOff';
 
-// App-specific imports
+// App-specific Imports
 import { getLocalItem } from '../utils/localStorageUtils';
 import { setSessionItem } from '../utils/sessionStorageUtils';
+import { validateSession } from '../api/sessionApi';
 import { joinSession } from '../api/userApi';
 import socket from '../socket/socket';
 import Html5QrcodePlugin from '../components/Html5QrcodePlugin';
-import ScannerWrapper from '../components/ScannerWrapper'; // Import the design wrapper
+import ScannerWrapper from '../components/ScannerWrapper';
 
-// --- STYLED COMPONENTS ---
-
+// --- STYLED COMPONENTS (Unchanged) ---
 const JoinRoomRoot = styled(Box)({
   minHeight: '100vh',
   width: '100%',
@@ -56,51 +58,80 @@ const ScannerModalStyle = {
   boxShadow: 24,
   p: 2,
 };
-
-// --- COMPONENT LOGIC ---
+// --- END STYLED COMPONENTS ---
 
 const JoinRoomPage = () => {
   const navigate = useNavigate();
   const { sessionCode: urlSessionCode } = useParams();
 
   const [code, setCode] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
+  const [isPasswordRequired, setIsPasswordRequired] = useState(false);
+  const [isCodeValid, setIsCodeValid] = useState(false); // NEW: Track if the code itself is valid
   const [apiMessage, setApiMessage] = useState({ type: '', text: '' });
   const [isScannerOpen, setScannerOpen] = useState(false);
 
-  // Effect to pre-fill code from URL parameter
   useEffect(() => {
     if (urlSessionCode) {
-      console.log(`Session code from URL: ${urlSessionCode}`);
       setCode(urlSessionCode.toUpperCase());
     }
   }, [urlSessionCode]);
 
-  // This function is passed to the scanner plugin
-  const onScanSuccess = (decodedText, decodedResult) => {
-    console.log(`Scanned text: ${decodedText}`);
-    setScannerOpen(false); // Close modal on successful scan
+  // --- OPTIMIZATION: This effect now ONLY runs when the code is 5 characters long ---
+  useEffect(() => {
+    // Clear state if code is not 5 characters long
+    if (code.length < 5) {
+      setIsCodeValid(false);
+      setIsPasswordRequired(false);
+      setApiMessage({ type: '', text: '' });
+      return;
+    }
+    
+    const validateCode = async () => {
+      setIsValidating(true);
+      setIsPasswordRequired(false); // Reset while validating
+      setApiMessage({ type: '', text: '' });
 
-    // Split the scanned text by '/' and get the last part.
-    // This works for "http://.../join-room/ABCDE" or just "/join-room/ABCDE"
-    const parts = decodedText.split('/');
-    const potentialCode = parts.pop() || parts.pop(); // Handles trailing slash
+      try {
+        const response = await validateSession(code);
+        if (response.valid) {
+          setIsCodeValid(true);
+          setIsPasswordRequired(response.password_required);
+          if (!response.password_required) {
+            setApiMessage({ type: 'success', text: 'Valid code. Ready to join!' });
+          }
+        } else {
+          setIsCodeValid(false);
+          setApiMessage({ type: 'error', text: 'This session code does not exist.' });
+        }
+      } catch (error) {
+        setIsCodeValid(false);
+        setApiMessage({ type: 'error', text: 'Could not validate session. Server may be down.' });
+      } finally {
+        setIsValidating(false);
+      }
+    };
 
-    if (potentialCode && potentialCode.length === 5) {
-      console.log(`Extracted session code: ${potentialCode}`);
-      setCode(potentialCode.toUpperCase());
+    validateCode();
+  }, [code]); // This effect is now perfectly efficient
+
+  const onScanSuccess = (decodedText) => {
+    setScannerOpen(false);
+    // Robustly find a 5-character alphanumeric code in the scanned text
+    const match = decodedText.match(/[a-zA-Z0-9]{5}/);
+    if (match) {
+      setCode(match[0].toUpperCase());
     } else {
-      alert("Scanned QR code does not contain a valid session link.");
+      setApiMessage({ type: 'error', text: 'Scanned QR code seems invalid.' });
     }
   };
 
-  const onScanError = (errorMessage) => {
-    // This callback can be used for debugging, but is optional.
-    // console.warn(errorMessage);
-  };
-  
   const handleCodeChange = (newValue) => {
     setCode(newValue.toUpperCase());
+    setPassword('');
   };
 
   const handleJoinSession = async () => {
@@ -109,8 +140,6 @@ const JoinRoomPage = () => {
 
     const userData = getLocalItem('kara_youke_user');
     if (!userData) {
-      setApiMessage({ type: 'error', text: 'User profile not found. Redirecting...' });
-      setIsLoading(false);
       navigate('/create-profile');
       return;
     }
@@ -118,67 +147,79 @@ const JoinRoomPage = () => {
     try {
       const response = await joinSession({
         session_code: code,
+        password: password,
         id: userData.id,
         name: userData.name,
         avatarBase64: userData.avatarBase64,
       });
 
       if (response.status === 'OK') {
-        setApiMessage({ type: 'success', text: response.message || 'Success! Joining room...' });
+        setApiMessage({ type: 'success', text: 'Success! Joining room...' });
         setSessionItem('kara_youke_session', { code: code, role: 'remote', user: response.user });
         socket.emit('join_room', code);
         setTimeout(() => navigate('/remote'), 1500);
-      } else {
-        setApiMessage({ type: 'error', text: response.message || 'Failed to join session.' });
       }
     } catch (error) {
-      const errorMsg = error.response?.data?.detail || 'Invalid Session Code or Server Error.';
+      const errorMsg = error.response?.data?.detail || 'An unexpected error occurred.';
       setApiMessage({ type: 'error', text: errorMsg });
     } finally {
       setIsLoading(false);
     }
   };
 
+  // --- OPTIMIZATION: Updated button disabled logic ---
+  const isJoinButtonDisabled =
+    !isCodeValid || // Must have a valid code
+    isLoading || // Disabled while submitting
+    isValidating || // Disabled while checking the code
+    (isPasswordRequired && !password); // Disabled if password is required but not entered
+
   return (
     <JoinRoomRoot>
       <ContentBox>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Join a Session
-        </Typography>
-
-        {apiMessage.text && (
-          <Alert severity={apiMessage.type} sx={{ mb: 2 }}>
-            {apiMessage.text}
-          </Alert>
-        )}
-
+        <Typography variant="h4" component="h1" gutterBottom>Join a Session</Typography>
+        {apiMessage.text && <Alert severity={apiMessage.type} sx={{ mb: 2 }}>{apiMessage.text}</Alert>}
+        
         <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
           Enter the 5-digit code from the host screen.
         </Typography>
 
-        <MuiOtpInput
-          value={code}
-          onChange={handleCodeChange}
-          length={5}
-          sx={{ gap: 1.5, mb: 2 }}
-        />
+        <MuiOtpInput value={code} onChange={handleCodeChange} length={5} sx={{ gap: 1.5, mb: 1 }} />
+
+        {isValidating && <CircularProgress size={20} sx={{ my: 1 }} />}
+
+        {isPasswordRequired && (
+          <TextField
+            label="Room Password"
+            variant="filled"
+            type={showPassword ? 'text' : 'password'}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            fullWidth
+            sx={{ my: 2, /* styles copied from HostPage */ }}
+            InputLabelProps={{ style: { color: 'rgba(255, 255, 255, 0.7)' } }}
+            InputProps={{
+              style: { color: 'white' },
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton onClick={() => setShowPassword(!showPassword)} edge="end" sx={{ color: 'white' }}>
+                    {showPassword ? <VisibilityOff /> : <Visibility />}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+          />
+        )}
         
-        <Button
-          variant="outlined"
-          startIcon={<CameraAltIcon />}
-          onClick={() => setScannerOpen(true)}
-          fullWidth
-          sx={{ mb: 2 }}
-        >
+        <Button variant="outlined" startIcon={<CameraAltIcon />} onClick={() => setScannerOpen(true)} fullWidth sx={{ mb: 2 }}>
           Scan QR Code
         </Button>
 
         <Button
-          variant="contained"
-          size="large"
+          variant="contained" size="large"
           startIcon={isLoading ? <CircularProgress size={24} color="inherit" /> : <LoginIcon />}
           onClick={handleJoinSession}
-          disabled={code.length !== 5 || isLoading}
+          disabled={isJoinButtonDisabled}
           fullWidth
         >
           {isLoading ? 'Joining...' : 'Join Room'}
@@ -187,25 +228,13 @@ const JoinRoomPage = () => {
 
       <Modal open={isScannerOpen} onClose={() => setScannerOpen(false)}>
         <Box sx={ScannerModalStyle}>
-          <Typography variant="h6" component="h2" align="center" gutterBottom>
-            Scan QR Code
-          </Typography>
-          
+          <Typography variant="h6" component="h2" align="center" gutterBottom>Scan QR Code</Typography>
           <ScannerWrapper>
             {isScannerOpen && (
-              <Html5QrcodePlugin
-                fps={10}
-                qrbox={250}
-                disableFlip={false}
-                qrCodeSuccessCallback={onScanSuccess}
-                qrCodeErrorCallback={onScanError}
-              />
+              <Html5QrcodePlugin fps={10} qrbox={250} disableFlip={false} qrCodeSuccessCallback={onScanSuccess} />
             )}
           </ScannerWrapper>
-
-          <Button onClick={() => setScannerOpen(false)} sx={{ mt: 2 }} fullWidth>
-            Cancel
-          </Button>
+          <Button onClick={() => setScannerOpen(false)} sx={{ mt: 2 }} fullWidth>Cancel</Button>
         </Box>
       </Modal>
     </JoinRoomRoot>
