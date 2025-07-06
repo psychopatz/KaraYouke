@@ -60,6 +60,7 @@ const KaraokePage = () => {
   const [isPlaying, setIsPlaying] = useState(true);
   const [message, setMessage] = useState(null);
   const [playerKey, setPlayerKey] = useState(Date.now());
+  const [showScore, setShowScore] = useState(true); // Session-wide setting, defaults to true
 
   // --- Refs and Hooks ---
   const lastShownSongId = useRef(null);
@@ -70,12 +71,10 @@ const KaraokePage = () => {
   const hostUser = useMemo(() => getLocalItem('kara_youke_user'), []);
   const sessionCode = session?.code;
 
-  // --- A dedicated function to skip a song without showing a score ---
+  // --- Handler for skipping a song without showing a score ---
   const handleSkipSong = () => {
     const songToSkip = queue[0];
     if (!songToSkip) return;
-
-    console.log(`Skipping song: ${songToSkip.title}`);
     socket.emit('remove_song', {
       session_code: sessionCode,
       queue_id: songToSkip.queue_id,
@@ -87,43 +86,46 @@ const KaraokePage = () => {
   useEffect(() => {
     if (!sessionCode) return;
 
-    const handleQueueUpdate = (newQueue) => setQueue(newQueue);
-    const handleUsersUpdate = (newUsers) => setUsers(newUsers);
-
-    const handlePlayerControl = (data) => {
-      const { action, user } = data;
-      console.log(`Received player control: '${action}' from user '${user.name}'`);
-      switch (action) {
-        case 'toggle_play_pause':
-          setIsPlaying(prev => !prev);
-          break;
-        case 'next_song':
-          if (queue.length > 0) handleSkipSong();
-          break;
-      }
+    // A single, unified handler for ALL session state updates
+    const handleSessionUpdate = (sessionData) => {
+        setQueue(sessionData.queue || []);
+        setUsers(sessionData.users || []);
+        if (sessionData.settings && typeof sessionData.settings.showScore === 'boolean') {
+            setShowScore(sessionData.settings.showScore);
+        }
     };
     
-    const handleGetPlayerState = () => {
-      socket.emit('player_state_updated', { session_code: sessionCode, isPlaying });
+    // Handler for live, single setting changes
+    const handleSettingUpdate = ({ key, value }) => {
+        if (key === 'showScore') setShowScore(value);
     };
 
-    socket.on('queue_updated', handleQueueUpdate);
-    socket.on('users_updated', handleUsersUpdate);
+    const handlePlayerControl = (data) => {
+      const { action } = data;
+      switch (action) {
+        case 'toggle_play_pause': setIsPlaying(prev => !prev); break;
+        case 'next_song': if (queue.length > 0) handleSkipSong(); break;
+      }
+    };
+    const handleGetPlayerState = () => socket.emit('player_state_updated', { session_code: sessionCode, isPlaying });
+
+    socket.on('session_updated', handleSessionUpdate);
     socket.on('player_control', handlePlayerControl);
     socket.on('get_player_state', handleGetPlayerState);
+    socket.on('setting_updated', handleSettingUpdate);
 
     return () => {
-      socket.off('queue_updated', handleQueueUpdate);
-      socket.off('users_updated', handleUsersUpdate);
+      socket.off('session_updated', handleSessionUpdate);
       socket.off('player_control', handlePlayerControl);
       socket.off('get_player_state', handleGetPlayerState);
+      socket.off('setting_updated', handleSettingUpdate);
     };
-  }, [sessionCode, isPlaying, queue]);
+  }, [sessionCode, isPlaying, queue]); // Dependencies are correct
 
   // --- Effect #2: Fetch Initial Data ONCE ---
   useEffect(() => {
     if (sessionCode) {
-      socket.emit('get_session_info', sessionCode);
+      socket.emit('get_full_session', sessionCode);
     }
   }, [sessionCode]);
 
@@ -136,9 +138,7 @@ const KaraokePage = () => {
   // --- Effect #4: Core Karaoke Logic (Current Song & Messages) ---
   useEffect(() => {
     const activeSong = queue.length > 0 ? queue[0] : DEFAULT_SONG_OBJECT;
-    if (activeSong.song_id !== currentSong.song_id) {
-        setPlayerKey(Date.now());
-    }
+    if (activeSong.song_id !== currentSong.song_id) { setPlayerKey(Date.now()); }
     setCurrentSong(activeSong);
     const isRealSong = activeSong.added_by !== 'system';
     const hasIntroBeenShown = activeSong.song_id === lastShownSongId.current;
@@ -162,16 +162,13 @@ const KaraokePage = () => {
       setPlayerKey(Date.now());
       return;
     }
-
-    // Check the song's preference before showing the score. Default to true if not set.
-    const shouldShowScore = currentSong?.show_score !== false;
-
-    if (shouldShowScore) {
+    // Check the synchronized session-wide 'showScore' state variable.
+    if (showScore) {
       songThatEnded.current = currentSong;
       const singer = getUserData(currentSong?.added_by, users);
       setFinishedSinger(singer);
     } else {
-      console.log(`Skipping score for ${currentSong.title} as per user's request.`);
+      console.log(`Skipping score because the session setting is off.`);
       socket.emit('remove_song', {
         session_code: sessionCode,
         queue_id: currentSong.queue_id,
@@ -186,11 +183,7 @@ const KaraokePage = () => {
     playScoreSound(() => {
       const songToRemove = songThatEnded.current;
       if (hostUser && sessionCode && songToRemove) {
-        socket.emit('remove_song', {
-          session_code: sessionCode,
-          queue_id: songToRemove.queue_id, 
-          user_id: songToRemove.added_by,
-        });
+        socket.emit('remove_song', { session_code: sessionCode, queue_id: songToRemove.queue_id, user_id: songToRemove.added_by });
       }
       setFinishedSinger(null);
       songThatEnded.current = null;

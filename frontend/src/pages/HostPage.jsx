@@ -11,7 +11,6 @@ import { createSession, deleteSession, validateSession } from '../api/sessionApi
 import { joinSession } from '../api/userApi';
 import { setLocalItem, getLocalItem, removeLocalItem } from '../utils/localStorageUtils';
 import { setSessionItem } from '../utils/sessionStorageUtils';
-import useSessionSocket from '../hooks/useSessionSocket';
 
 // Import Components and Socket
 import QRCodeDisplay from '../components/QRCodeDisplay';
@@ -65,56 +64,72 @@ const HostPage = () => {
   
   const hostUser = useMemo(() => getLocalItem('kara_youke_user'), []);
 
-  // Custom hook to manage socket listeners for user updates
-  useSessionSocket(setConnectedUsers);
+  // This effect handles all socket communication for the HostPage
+  useEffect(() => {
+    if (!sessionCode) return;
 
-  // A stable function to register this client as the host via WebSocket.
-  // Wrapped in useCallback to prevent re-creation on every render.
+    // This handler listens for the unified session update event from the backend
+    const handleSessionUpdate = (sessionData) => {
+        if (sessionData && Array.isArray(sessionData.users)) {
+            setConnectedUsers(sessionData.users);
+        }
+    };
+    
+    // Also listen to the old event for compatibility if needed, though session_updated is preferred
+    const handleUsersUpdate = (users) => {
+        if (Array.isArray(users)) {
+            setConnectedUsers(users);
+        }
+    };
+
+    socket.on('session_updated', handleSessionUpdate);
+    socket.on('users_updated', handleUsersUpdate);
+
+    // When the host connects or reconnects, get the full session data
+    // to populate the user list correctly.
+    if(socket.connected) {
+        socket.emit('get_full_session', sessionCode);
+    } else {
+        socket.once('connect', () => {
+            socket.emit('get_full_session', sessionCode);
+        });
+    }
+
+    return () => {
+        socket.off('session_updated', handleSessionUpdate);
+        socket.off('users_updated', handleUsersUpdate);
+    };
+  }, [sessionCode]);
+
   const registerAsHost = useCallback((code) => {
     if (!code) return;
-
     const doRegister = () => {
       console.log(`Socket connected, registering as host for ${code}`);
       socket.emit('register_host', code);
     };
-
-    // If the socket is already connected, register immediately.
-    if (socket.connected) {
-      doRegister();
-    } else {
-      // Otherwise, wait for the 'connect' event before registering.
-      // Use .once() to ensure this listener only fires once for this registration attempt.
+    if (socket.connected) { doRegister(); } 
+    else {
       socket.once('connect', doRegister);
-      // Ensure the socket is trying to connect if it's disconnected.
-      if (socket.disconnected) {
-        socket.connect();
-      }
+      if (socket.disconnected) socket.connect();
     }
   }, []);
 
-  // This effect runs on component mount to check for and restore a previous session.
   useEffect(() => {
     const attemptRestoreSession = async () => {
       const savedSession = getLocalItem(HOST_SESSION_KEY);
-
       if (savedSession?.code && savedSession?.role === 'host') {
-        console.log(`Found saved host session: ${savedSession.code}. Validating...`);
         const isValid = await validateSession(savedSession.code);
-
         if (isValid) {
-          console.log("Session is valid. Reconnecting...");
           setSessionCode(savedSession.code);
           registerAsHost(savedSession.code);
         } else {
-          console.log("Saved session is no longer valid on the server. Clearing.");
           removeLocalItem(HOST_SESSION_KEY);
         }
       }
-      setIsLoading(false); // Finished checking, stop loading indicator
+      setIsLoading(false);
     };
-
     attemptRestoreSession();
-  }, [registerAsHost]); // Dependency array ensures this runs once with the stable function
+  }, [registerAsHost]);
 
   const handleCreateSession = async () => {
     setIsLoading(true);
@@ -129,17 +144,14 @@ const HostPage = () => {
       const sessionData = await createSession();
       if (sessionData.session_code) {
         const newSessionCode = sessionData.session_code;
+        const hostUserEntry = { id: hostUser.id, name: hostUser.name, avatarBase64: hostUser.avatarBase64 };
         
-        await joinSession({
-          session_code: newSessionCode,
-          id: hostUser.id,
-          name: hostUser.name,
-          avatarBase64: hostUser.avatarBase64,
-        });
+        await joinSession({ session_code: newSessionCode, ...hostUserEntry });
         
         setSessionCode(newSessionCode);
         setLocalItem(HOST_SESSION_KEY, { code: newSessionCode, role: 'host' });
         registerAsHost(newSessionCode);
+        setConnectedUsers([hostUserEntry]); // Immediately show the host in the list
 
       } else {
         throw new Error('No session code received from server.');
@@ -154,11 +166,9 @@ const HostPage = () => {
 
   const handleRegenerateRoom = async () => {
     if (!sessionCode) return;
-
     setIsLoading(true);
     try {
       await deleteSession(sessionCode);
-      // Re-running the create logic will generate a new room and update the state
       await handleCreateSession(); 
     } catch (err) {
       console.error("Failed to regenerate room", err);
@@ -170,7 +180,6 @@ const HostPage = () => {
 
   const handleStartKaraoke = () => {
     if (sessionCode) {
-      // Save session info to sessionStorage for KaraokePage to use
       setSessionItem('kara_youke_session', { code: sessionCode, role: 'host' });
       navigate(`/karaoke`);
     }
@@ -179,7 +188,6 @@ const HostPage = () => {
   const remoteUsers = connectedUsers.filter(user => user.id !== hostUser?.id);
   const hasRemotes = remoteUsers.length > 0;
 
-  // Render a loading screen while validating the session
   if (isLoading) {
     return (
       <HostPageRoot>
@@ -196,11 +204,7 @@ const HostPage = () => {
           <>
             <Typography variant="h3" color="white" fontWeight="bold">Ready to Host?</Typography>
             <Button
-              variant="contained"
-              color="primary"
-              size="large"
-              onClick={handleCreateSession}
-              disabled={isLoading}
+              variant="contained" color="primary" size="large" onClick={handleCreateSession} disabled={isLoading}
               startIcon={isLoading ? <CircularProgress size={24} color="inherit" /> : <QrCode2Icon />}
               sx={{ padding: '20px 40px', fontSize: '1.5rem', borderRadius: '50px' }}
             >
@@ -214,7 +218,7 @@ const HostPage = () => {
               <QRCodeDisplay sessionCode={sessionCode} />
               <RefreshButtonWrapper>
                 <Tooltip title="Create a New Room">
-                  <span> {/* Tooltip needs this span wrapper when its child might be disabled */}
+                  <span>
                     <IconButton onClick={handleRegenerateRoom} disabled={isLoading}>
                       <RefreshIcon />
                     </IconButton>
@@ -226,11 +230,7 @@ const HostPage = () => {
             <ConnectedUsersList users={connectedUsers} hostId={hostUser?.id} />
 
             <Button
-              variant="contained"
-              color="primary"
-              size="large"
-              onClick={handleStartKaraoke}
-              disabled={!hasRemotes || isLoading}
+              variant="contained" color="primary" size="large" onClick={handleStartKaraoke} disabled={!hasRemotes || isLoading}
               startIcon={<PlayCircleFilledWhiteIcon />}
               sx={{ padding: '15px 30px', fontSize: '1.2rem', marginTop: '1rem' }}
             >

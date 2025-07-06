@@ -11,7 +11,6 @@ import QueueList from '../components/QueueList';
 // Import Socket, Utils, and API functions
 import socket from '../socket/socket';
 import { getSessionItem } from '../utils/sessionStorageUtils';
-import { setLocalItem, getLocalItem } from '../utils/localStorageUtils';
 import { searchYoutube } from '../api/youtubeApi';
 
 // --- Constants & Styled Components ---
@@ -59,16 +58,14 @@ const RemotePage = () => {
   const [hasMore, setHasMore] = useState(true);
   const [isPlaying, setIsPlaying] = useState(true);
   const [clientId, setClientId] = useState('');
-  const [showScore, setShowScore] = useState(() => getLocalItem('kara_youke_showScore', true));
+  const [showScore, setShowScore] = useState(true); // Session-wide setting, will be updated by server
 
   // --- Memoized Values ---
   const session = useMemo(() => getSessionItem('kara_youke_session'), []);
   const currentUser = useMemo(() => session?.user, [session]);
 
-  // --- Derived State: Logic for disabling controls ---
-  // The Play/Pause button is disabled if no real song is playing.
+  // --- Derived State for Disabling Controls ---
   const isPlayPauseDisabled = queue.length === 0;
-  // The "Next" button is disabled if there isn't a song *after* the current one.
   const isNextDisabled = queue.length <= 1;
   
   // --- Main Effect for Socket Communication ---
@@ -76,23 +73,38 @@ const RemotePage = () => {
     if (!session?.code) return;
     
     const updateClientId = () => setClientId(socket.id || '');
-    const handleQueueUpdate = (newQueue) => setQueue(newQueue);
-    const handleUsersUpdate = (newUsers) => setConnectedUsers(newUsers);
-    const handlePlayerStateUpdate = ({ isPlaying: newIsPlaying }) => setIsPlaying(newIsPlaying);
+    const handlePlayerStateUpdate = ({ isPlaying }) => setIsPlaying(isPlaying);
+
+    // This handler can receive the entire session object for a full state update
+    const handleSessionUpdate = (sessionData) => {
+        setQueue(sessionData.queue || []);
+        setConnectedUsers(sessionData.users || []);
+        if (sessionData.settings && typeof sessionData.settings.showScore === 'boolean') {
+            setShowScore(sessionData.settings.showScore);
+        }
+    };
     
+    // This handler listens for live changes to a single setting
+    const handleSettingUpdate = ({ key, value }) => {
+        if (key === 'showScore' && typeof value === 'boolean') {
+            setShowScore(value);
+        }
+    };
+
     socket.on('connect', updateClientId);
-    socket.on('queue_updated', handleQueueUpdate);
-    socket.on('users_updated', handleUsersUpdate);
+    socket.on('session_updated', handleSessionUpdate); // For full state sync
+    socket.on('setting_updated', handleSettingUpdate);   // For live setting changes
     socket.on('player_state_updated', handlePlayerStateUpdate);
 
+    // Get initial data on load
     updateClientId();
-    socket.emit('get_session_info', session.code);
+    socket.emit('get_full_session', session.code);
     socket.emit('get_player_state', session.code);
 
     return () => {
       socket.off('connect', updateClientId);
-      socket.off('queue_updated', handleQueueUpdate);
-      socket.off('users_updated', handleUsersUpdate);
+      socket.off('session_updated', handleSessionUpdate);
+      socket.off('setting_updated', handleSettingUpdate);
       socket.off('player_state_updated', handlePlayerStateUpdate);
     };
   }, [session]);
@@ -111,15 +123,23 @@ const RemotePage = () => {
 
   const handleSearch = useCallback(() => { setLimit(PAGINATION_STEP); setSearchResults([]); fetchResults(searchQuery, PAGINATION_STEP); }, [searchQuery, fetchResults]);
   const handleLoadMore = useCallback(() => { const newLimit = Math.min(limit + PAGINATION_STEP, MAX_RESULTS); setLimit(newLimit); fetchResults(searchQuery, newLimit); }, [limit, searchQuery, fetchResults]);
+  
   const handleAddSong = useCallback((song) => {
-    const newSongEntry = { song_id: song.id, title: song.title, duration: song.duration, added_by: currentUser.id, thumbnails: song.thumbnails, show_score: showScore };
+    const newSongEntry = { song_id: song.id, title: song.title, duration: song.duration, added_by: currentUser.id, thumbnails: song.thumbnails };
     socket.emit('add_song', { session_code: session.code, song: newSongEntry });
     setSearchResults([]); setSearchQuery('');
-  }, [currentUser, session, showScore]);
+  }, [currentUser, session]);
+
   const handleRemoveSong = useCallback((queueId) => { socket.emit('remove_song', { session_code: session.code, queue_id: queueId, user_id: currentUser.id }); }, [currentUser, session]);
+  
   const handleTogglePlayPause = () => { socket.emit('player_control', { session_code: session.code, action: 'toggle_play_pause', user: { id: currentUser.id, name: currentUser.name }}); };
   const handleNextSong = () => { socket.emit('player_control', { session_code: session.code, action: 'next_song', user: { id: currentUser.id, name: currentUser.name }}); };
-  const handleShowScoreChange = (event) => { const newShowScoreValue = event.target.checked; setShowScore(newShowScoreValue); setLocalItem('kara_youke_showScore', newShowScoreValue); };
+  
+  const handleShowScoreChange = (event) => {
+    const newShowScoreValue = event.target.checked;
+    setShowScore(newShowScoreValue); // Optimistic UI update
+    socket.emit('change_setting', { session_code: session.code, key: 'showScore', value: newShowScoreValue });
+  };
   
   if (!currentUser) return null;
 
@@ -144,7 +164,7 @@ const RemotePage = () => {
           <Box sx={{ display: 'flex', justifyContent: 'center', my: 2, alignItems: 'center' }}>
             <FormControlLabel
               control={<Switch checked={showScore} onChange={handleShowScoreChange} color="primary" />}
-              label="Show My Score"
+              label="Show Score For All Singers"
             />
           </Box>
 
