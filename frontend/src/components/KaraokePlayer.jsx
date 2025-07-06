@@ -1,30 +1,26 @@
 // src/components/KaraokePlayer.jsx
 import React from 'react';
-import ReactPlayer from 'react-player';
+import ReactPlayer from 'react-player'; 
 
-// The wrapper style is now part of this component
 const PlayerWrapper = {
   position: 'fixed',
   top: 0,
   left: 0,
   width: '100vw',
   height: '100vh',
-  zIndex: 1,
+  zIndex: -1, // Changed to -1 to be behind all content by default
   backgroundColor: 'black',
+  // Added a vignette effect to make foreground text more readable
+  '::after': {
+    content: '""',
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    pointerEvents: 'none',
+  },
 };
 
-/**
- * A reusable Karaoke Player component.
- * @param {object} props
- * @param {object} props.song - The song object to play, must have a `song_id`.
- * @param {boolean} props.isPlaying - Whether the player should be in the playing state.
- * @param {boolean} props.isLooping - Whether the video should loop.
- * @param {boolean} props.showControls - Whether to show the native player controls.
- * @param {function} props.onEnded - Callback function for when the song finishes.
- * @param {function} props.onError - Callback function for when an error occurs.
- */
 const KaraokePlayer = ({ song, isPlaying, isLooping, showControls, onEnded, onError }) => {
-  // If there's no song for any reason, don't render a broken player
   if (!song || !song.song_id) {
     return null;
   }
@@ -32,8 +28,10 @@ const KaraokePlayer = ({ song, isPlaying, isLooping, showControls, onEnded, onEr
   return (
     <div style={PlayerWrapper}>
       <ReactPlayer
-        // Using `src` as confirmed to be working for you
-        src={`https://www.youtube.com/watch?v=${song.song_id}`}  // ✅ Correct
+        // Note: 'url' is the more standard prop name, but 'src' works too.
+        src={`https://www.youtube.com/watch?v=${song.song_id}&vq=hd720`}
+        // --- THIS IS THE FIX ---
+        // It now correctly uses the isPlaying prop from the parent component.
         playing={isPlaying}
         loop={isLooping}
         controls={showControls}
@@ -47,7 +45,6 @@ const KaraokePlayer = ({ song, isPlaying, isLooping, showControls, onEnded, onEr
               autoplay: 1,
               iv_load_policy: 3,
               modestbranding: 1,
-              // Suggesting 720p quality
               vq: 'hd720',
             },
           },

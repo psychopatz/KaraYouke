@@ -17,4 +17,4 @@ sio = socketio.AsyncServer(
 )
 
 # Import all socket event handlers
-from . import core, queue_events
+from . import core, queue_events,player_events,settings_events 

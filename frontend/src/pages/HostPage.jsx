@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Box, Button, CircularProgress, Typography, IconButton, Tooltip } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import QrCode2Icon from '@mui/icons-material/QrCode2';
@@ -7,17 +7,21 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import { useNavigate } from 'react-router-dom';
 
 // Import all necessary API and utility functions
-import { createSession, deleteSession } from '../api/sessionApi';
+import { createSession, deleteSession, validateSession } from '../api/sessionApi';
 import { joinSession } from '../api/userApi';
+import { setLocalItem, getLocalItem, removeLocalItem } from '../utils/localStorageUtils';
+import { setSessionItem } from '../utils/sessionStorageUtils';
+import useSessionSocket from '../hooks/useSessionSocket';
+
+// Import Components and Socket
 import QRCodeDisplay from '../components/QRCodeDisplay';
 import ConnectedUsersList from '../components/ConnectedUsersList';
 import socket from '../socket/socket';
-import useSessionSocket from '../hooks/useSessionSocket';
-import { setSessionItem, getSessionItem } from '../utils/sessionStorageUtils';
-import { getLocalItem } from '../utils/localStorageUtils';
 
-const SESSION_STORAGE_KEY = 'kara_youke_session';
+// Use localStorage for persistence across browser sessions
+const HOST_SESSION_KEY = 'kara_youke_host_session';
 
+// --- Styled Components ---
 const HostPageRoot = styled(Box)({
   minHeight: '100vh',
   width: '100%',
@@ -49,28 +53,68 @@ const RefreshButtonWrapper = styled(Box)({
   top: 0,
   right: 0,
 });
+// --- End Styled Components ---
+
 
 const HostPage = () => {
   const navigate = useNavigate();
   const [sessionCode, setSessionCode] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Start loading to check for a session
   const [error, setError] = useState('');
   const [connectedUsers, setConnectedUsers] = useState([]);
   
   const hostUser = useMemo(() => getLocalItem('kara_youke_user'), []);
 
+  // Custom hook to manage socket listeners for user updates
   useSessionSocket(setConnectedUsers);
 
-  useEffect(() => {
-    const savedSession = getSessionItem(SESSION_STORAGE_KEY);
-    if (savedSession && savedSession.code && savedSession.role === 'host') {
-      setSessionCode(savedSession.code);
+  // A stable function to register this client as the host via WebSocket.
+  // Wrapped in useCallback to prevent re-creation on every render.
+  const registerAsHost = useCallback((code) => {
+    if (!code) return;
+
+    const doRegister = () => {
+      console.log(`Socket connected, registering as host for ${code}`);
+      socket.emit('register_host', code);
+    };
+
+    // If the socket is already connected, register immediately.
+    if (socket.connected) {
+      doRegister();
+    } else {
+      // Otherwise, wait for the 'connect' event before registering.
+      // Use .once() to ensure this listener only fires once for this registration attempt.
+      socket.once('connect', doRegister);
+      // Ensure the socket is trying to connect if it's disconnected.
       if (socket.disconnected) {
         socket.connect();
       }
-      socket.emit('join_room', savedSession.code);
     }
   }, []);
+
+  // This effect runs on component mount to check for and restore a previous session.
+  useEffect(() => {
+    const attemptRestoreSession = async () => {
+      const savedSession = getLocalItem(HOST_SESSION_KEY);
+
+      if (savedSession?.code && savedSession?.role === 'host') {
+        console.log(`Found saved host session: ${savedSession.code}. Validating...`);
+        const isValid = await validateSession(savedSession.code);
+
+        if (isValid) {
+          console.log("Session is valid. Reconnecting...");
+          setSessionCode(savedSession.code);
+          registerAsHost(savedSession.code);
+        } else {
+          console.log("Saved session is no longer valid on the server. Clearing.");
+          removeLocalItem(HOST_SESSION_KEY);
+        }
+      }
+      setIsLoading(false); // Finished checking, stop loading indicator
+    };
+
+    attemptRestoreSession();
+  }, [registerAsHost]); // Dependency array ensures this runs once with the stable function
 
   const handleCreateSession = async () => {
     setIsLoading(true);
@@ -85,6 +129,7 @@ const HostPage = () => {
       const sessionData = await createSession();
       if (sessionData.session_code) {
         const newSessionCode = sessionData.session_code;
+        
         await joinSession({
           session_code: newSessionCode,
           id: hostUser.id,
@@ -93,13 +138,14 @@ const HostPage = () => {
         });
         
         setSessionCode(newSessionCode);
-        setSessionItem(SESSION_STORAGE_KEY, { code: newSessionCode, role: 'host' });
-        socket.emit('join_room', newSessionCode);
+        setLocalItem(HOST_SESSION_KEY, { code: newSessionCode, role: 'host' });
+        registerAsHost(newSessionCode);
+
       } else {
         throw new Error('No session code received from server.');
       }
     } catch (err) {
-      console.log(err)
+      console.error("Error creating session:", err);
       setError('Could not create session. Please try again.');
     } finally {
       setIsLoading(false);
@@ -124,6 +170,8 @@ const HostPage = () => {
 
   const handleStartKaraoke = () => {
     if (sessionCode) {
+      // Save session info to sessionStorage for KaraokePage to use
+      setSessionItem('kara_youke_session', { code: sessionCode, role: 'host' });
       navigate(`/karaoke`);
     }
   };
@@ -131,6 +179,16 @@ const HostPage = () => {
   const remoteUsers = connectedUsers.filter(user => user.id !== hostUser?.id);
   const hasRemotes = remoteUsers.length > 0;
 
+  // Render a loading screen while validating the session
+  if (isLoading) {
+    return (
+      <HostPageRoot>
+        <CircularProgress color="primary" size={60} />
+        <Typography sx={{ mt: 2, color: 'white' }}>Checking for active session...</Typography>
+      </HostPageRoot>
+    );
+  }
+  
   return (
     <HostPageRoot>
       <ContentWrapper>
@@ -146,7 +204,7 @@ const HostPage = () => {
               startIcon={isLoading ? <CircularProgress size={24} color="inherit" /> : <QrCode2Icon />}
               sx={{ padding: '20px 40px', fontSize: '1.5rem', borderRadius: '50px' }}
             >
-              {isLoading ? 'Creating...' : 'Create Room'}
+              {'Create Room'}
             </Button>
             {error && <Typography color="error">{error}</Typography>}
           </>
@@ -165,7 +223,7 @@ const HostPage = () => {
               </RefreshButtonWrapper>
             </QRCodeWrapper>
 
-            <ConnectedUsersList users={connectedUsers} />
+            <ConnectedUsersList users={connectedUsers} hostId={hostUser?.id} />
 
             <Button
               variant="contained"
@@ -174,13 +232,9 @@ const HostPage = () => {
               onClick={handleStartKaraoke}
               disabled={!hasRemotes || isLoading}
               startIcon={<PlayCircleFilledWhiteIcon />}
-              sx={{
-                padding: '15px 30px',
-                fontSize: '1.2rem',
-                marginTop: '1rem',
-              }}
+              sx={{ padding: '15px 30px', fontSize: '1.2rem', marginTop: '1rem' }}
             >
-              {isLoading ? 'Regenerating...' : hasRemotes ? 'Start KaraYouke🎤🎶' : 'Waiting for a remote...'}
+              {hasRemotes ? 'Start KaraYouke🎤🎶' : 'Waiting for a remote...'}
             </Button>
           </>
         )}

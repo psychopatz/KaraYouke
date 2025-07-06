@@ -39,7 +39,7 @@ async def join_session(user: JoinRequest):
     SESSIONS[code]["users"].append(user_entry)
 
     await sio.emit("join_remote", user_entry, room=code)
-    await sio.emit("users_updated", SESSIONS[code]["users"], room=code)
+    await sio.emit("session_updated", SESSIONS[code], room=code)
 
     return {
         "status": "OK",

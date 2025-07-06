@@ -39,9 +39,12 @@ def create_session():
     SESSIONS[code] = {
         "users": [],
         "queue": [],
-        "leaderboard": []
+        "leaderboard": [],
+        "settings": {
+            "showScore": True
+        }
     }
-    print(f"Session created: {code}")
+    print(f"Session created: {code} with default settings.")
     return { "status": "OK", "session_code": code }
 
 @router.post("/restore", tags=["Session"], summary="Restore Session")
@@ -56,6 +59,16 @@ def restore_session(data: RestoreRequest):
         "message": f"Session '{data.session_code}' restored.",
         "data": SESSIONS[data.session_code]
     }
+
+@router.get("/validate/{session_code}", tags=["Session"], summary="Validate Session Existence")
+def validate_session_existence(session_code: str):
+    """
+    Checks if a session code exists in the server's memory.
+    Returns a simple boolean status.
+    """
+    is_valid = session_code in SESSIONS
+    return { "status": "OK", "valid": is_valid }
+
 
 # ✅ --- FIX: The specific, static route is now DEFINED BEFORE the dynamic route ---
 @router.get("/all-sessions", tags=["Debug"], summary="[Debug] Get All Active Sessions")

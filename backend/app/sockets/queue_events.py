@@ -22,7 +22,7 @@ async def add_song(sid, data):
     song['queue_id'] = str(uuid.uuid4())
 
     SESSIONS[session_code]["queue"].append(song)
-    await sio.emit("queue_updated", SESSIONS[session_code]["queue"], room=session_code)
+    await sio.emit("session_updated", SESSIONS[session_code], room=session_code)
     print(f"Song added by {song['added_by']} to {session_code} (queue_id: {song['queue_id']})")
 
 @sio.event
@@ -57,4 +57,4 @@ async def remove_song(sid, data):
     after = len(SESSIONS[session_code]["queue"])
     print(f"User {user_id} removed song with queue_id {queue_id} from {session_code}: {before} → {after}")
 
-    await sio.emit("queue_updated", SESSIONS[session_code]["queue"], room=session_code)
+    await sio.emit("session_updated", SESSIONS[session_code], room=session_code)

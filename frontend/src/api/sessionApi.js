@@ -26,3 +26,14 @@ export const deleteSession = async (sessionCode) => {
     throw error;
   }
 };
+
+export const validateSession = async (sessionCode) => {
+  try {
+    const response = await axiosClient.get(`/session/validate/${sessionCode}`);
+    return response.data.valid;
+  } catch (error) {
+    console.error("Error validating session:", error);
+    // If there's any error (like a 404, 500), assume the session is invalid.
+    return false;
+  }
+};
