@@ -1,6 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Container, Box, Typography } from '@mui/material';
+import { Box, Typography, Stack } from '@mui/material';
+import { styled } from '@mui/material/styles';
 
+// NEW: Import the new controls component
+import KaraokeControls from '../components/KaraokeControls';
+
+// Existing Imports
 import SearchBar from '../components/SearchBar';
 import SearchResults from '../components/SearchResults';
 import QueueList from '../components/QueueList';
@@ -8,9 +13,49 @@ import socket from '../socket/socket';
 import { getSessionItem } from '../utils/sessionStorageUtils';
 import { searchYoutube } from '../api/youtubeApi';
 
-
 const PAGINATION_STEP = 5;
 const MAX_RESULTS = 20;
+
+// NEW: Styled components for the design overhaul, inspired by LandingPage
+const RemotePageRoot = styled(Box)({
+  minHeight: '100vh',
+  width: '100%',
+  backgroundImage: 'url(/background.svg)',
+  backgroundSize: 'cover',
+  backgroundPosition: 'center',
+  backgroundRepeat: 'no-repeat',
+  padding: '16px',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+});
+
+const ContentContainer = styled(Box)(({ theme }) => ({
+  padding: theme.spacing(4),
+  [theme.breakpoints.down('sm')]: {
+      padding: theme.spacing(2),
+  },
+  borderRadius: theme.shape.borderRadius * 2,
+  backgroundColor: 'rgba(0, 0, 0, 0.6)',
+  backdropFilter: 'blur(10px)',
+  border: '1px solid rgba(255, 255, 255, 0.1)',
+  color: '#fff',
+  width: '100%',
+  maxWidth: theme.breakpoints.values.md, // equivalent to Container maxWidth="md"
+  maxHeight: 'calc(100vh - 32px)', // Full height minus padding
+  overflowY: 'auto',
+  // Custom scrollbar for better aesthetics
+  '&::-webkit-scrollbar': {
+    width: '8px',
+  },
+  '&::-webkit-scrollbar-track': {
+    backgroundColor: 'rgba(0,0,0,0.2)',
+  },
+  '&::-webkit-scrollbar-thumb': {
+    backgroundColor: theme.palette.primary.main,
+    borderRadius: '4px',
+  }
+}));
 
 const RemotePage = () => {
   const [queue, setQueue] = useState([]);
@@ -20,6 +65,9 @@ const RemotePage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [limit, setLimit] = useState(PAGINATION_STEP);
   const [hasMore, setHasMore] = useState(true);
+  
+  // NEW: State for player controls, default to true. Will be updated by the host.
+  const [isPlaying, setIsPlaying] = useState(true);
 
   const session = useMemo(() => getSessionItem('kara_youke_session'), []);
   const currentUser = useMemo(() => session?.user, [session]);
@@ -27,20 +75,28 @@ const RemotePage = () => {
   useEffect(() => {
     if (!session?.code) return;
     
-    // Setup listeners for real-time updates from the server
+    // NEW: Handler for player state updates from the host
+    const handlePlayerStateUpdate = ({ isPlaying: newIsPlaying }) => {
+      setIsPlaying(newIsPlaying);
+    };
     const handleQueueUpdate = (newQueue) => setQueue(newQueue);
     const handleUsersUpdate = (newUsers) => setConnectedUsers(newUsers);
     
     socket.on('queue_updated', handleQueueUpdate);
     socket.on('users_updated', handleUsersUpdate);
+    // NEW: Listen for player state changes
+    socket.on('player_state_updated', handlePlayerStateUpdate);
 
-    // Request initial state when the component loads
+    // Request initial data from the session
     socket.emit('get_session_info', session.code);
+    // NEW: Request initial player state when component mounts
+    socket.emit('get_player_state', session.code);
 
-    // Cleanup listeners when the component unmounts
     return () => {
       socket.off('queue_updated', handleQueueUpdate);
       socket.off('users_updated', handleUsersUpdate);
+      // NEW: Clean up the listener
+      socket.off('player_state_updated', handlePlayerStateUpdate);
     };
   }, [session]);
 
@@ -72,7 +128,6 @@ const RemotePage = () => {
     fetchResults(searchQuery, newLimit);
   };
 
-  // --- UPDATED: This now emits a socket event ---
   const handleAddSong = (song) => {
     const newSongEntry = {
       song_id: song.id,
@@ -82,61 +137,86 @@ const RemotePage = () => {
       thumbnails: song.thumbnails,
     };
     
-    // Emit the event directly to the server's socket handler
     socket.emit('add_song', {
       session_code: session.code,
       song: newSongEntry,
     });
 
-    // Clear the UI locally for instant feedback
     setSearchResults([]);
     setSearchQuery('');
   };
 
-  // --- UPDATED: This also emits a socket event ---
-  const handleRemoveSong = (songId) => {
-    // Emit the event directly to the server's socket handler
+  const handleRemoveSong = (queueId) => {
     socket.emit('remove_song', {
       session_code: session.code,
-      song_id: songId,
+      queue_id: queueId,
       user_id: currentUser.id,
+    });
+  };
+  
+  // --- NEW: Handlers for Karaoke Controls ---
+  const handleTogglePlayPause = () => {
+    // This event will be sent to the backend, which then relays it to the host
+    socket.emit('player_control', {
+      session_code: session.code,
+      action: 'toggle_play_pause',
+    });
+  };
+
+  const handleNextSong = () => {
+    socket.emit('player_control', {
+      session_code: session.code,
+      action: 'next_song',
     });
   };
   
   if (!currentUser) return null;
 
   return (
-    <Container maxWidth="md" sx={{ py: 4 }}>
-      <Typography variant="h4" component="h1">
-        Hello, {currentUser.name}!
-      </Typography>
-      <Typography color="text.secondary" gutterBottom>
-        Session: {session.code}
-      </Typography>
+    // NEW: Apply the new root style
+    <RemotePageRoot>
+      {/* NEW: Use the new content container style */}
+      <ContentContainer>
+        <Stack spacing={2} sx={{ textAlign: 'center' }}>
+            <Typography variant="h4" component="h1">
+                Welcome, {currentUser.name}!
+            </Typography>
+            <Typography color="text.secondary" gutterBottom>
+                Session Code: <strong>{session.code}</strong>
+            </Typography>
+        </Stack>
 
-      <Box mt={4}>
-        <SearchBar
-          query={searchQuery}
-          onQueryChange={setSearchQuery}
-          onSearch={handleSearch}
-          isLoading={isLoading}
+        {/* NEW: Add the KaraokeControls component */}
+        <KaraokeControls
+          isPlaying={isPlaying}
+          onPlayPause={handleTogglePlayPause}
+          onNext={handleNextSong}
         />
-        <SearchResults
-          results={searchResults}
-          onAddSong={handleAddSong}
-          isLoading={isLoading}
-          loadMore={handleLoadMore}
-          hasMore={hasMore}
-        />
-      </Box>
 
-      <QueueList
-        queue={queue}
-        currentUser={currentUser}
-        onRemoveSong={handleRemoveSong}
-        connectedUsers={connectedUsers}
-      />
-    </Container>
+        <Box mt={4}>
+          <SearchBar
+            query={searchQuery}
+            onQueryChange={setSearchQuery}
+            onSearch={handleSearch}
+            isLoading={isLoading}
+          />
+          <SearchResults
+            results={searchResults}
+            onAddSong={handleAddSong}
+            isLoading={isLoading}
+            loadMore={handleLoadMore}
+            hasMore={hasMore}
+          />
+        </Box>
+
+        <QueueList
+          queue={queue}
+          currentUser={currentUser}
+          onRemoveSong={handleRemoveSong}
+          connectedUsers={connectedUsers}
+        />
+      </ContentContainer>
+    </RemotePageRoot>
   );
 };
 

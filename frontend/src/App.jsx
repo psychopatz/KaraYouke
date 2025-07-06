@@ -13,6 +13,7 @@ import JoinRoomPage from './pages/JoinRoomPage';
 import RemoteRouteGuard from './layout/RemoteRouteGuard';
 import RemotePage from './pages/RemotePage'; 
 import KaraokePage from './pages/KaraokePage';
+import VersionDisplay from './components/VersionDisplay';
 
 
 
@@ -75,6 +76,7 @@ function App() {
 
         </Routes>
       </Router>
+       <VersionDisplay />
     </ThemeProvider>
   );
 }

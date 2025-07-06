@@ -2,10 +2,8 @@
 import os
 from dotenv import load_dotenv
 
-# Load environment variables at the VERY TOP
 load_dotenv()
 
-# Now, we can safely import our application modules
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware # <--- RE-IMPORT THIS
 from socketio import ASGIApp
@@ -15,15 +13,13 @@ from .api.user import router as user_router
 from .api.network import router as network_router
 from .sockets.socket_server import sio
 
-# --- ✅ THIS IS THE CRITICAL FIX ---
-# Read the allowed origins from the environment variable for FastAPI
+
 origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 
 # Main FastAPI app
 fastapi_app = FastAPI()
 
-# Add the CORS middleware back to the FastAPI app
-# This handles CORS for all REST API routes (e.g., /api/session/create)
+
 fastapi_app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
