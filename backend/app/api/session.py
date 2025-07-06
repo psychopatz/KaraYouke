@@ -2,7 +2,6 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from app.services.session_code_utils import generate_session_code
-# NEW: Import the socket instance to be able to emit events
 from app.sockets.socket_server import sio
 from app.state import SESSIONS
 
@@ -17,7 +16,7 @@ class UserEntry(BaseModel):
 class QueueEntry(BaseModel):
     song_id: str = ""
     title: str = ""
-    singer: str = "" # Note: This field exists in your model
+    singer: str = "" 
 
 class LeaderboardEntry(BaseModel):
     id: str
@@ -42,6 +41,7 @@ def create_session():
         "queue": [],
         "leaderboard": []
     }
+    print(f"Session created: {code}")
     return { "status": "OK", "session_code": code }
 
 @router.post("/restore", tags=["Session"], summary="Restore Session")
@@ -57,8 +57,24 @@ def restore_session(data: RestoreRequest):
         "data": SESSIONS[data.session_code]
     }
 
+# ✅ --- FIX: The specific, static route is now DEFINED BEFORE the dynamic route ---
+@router.get("/all-sessions", tags=["Debug"], summary="[Debug] Get All Active Sessions")
+def get_all_sessions():
+    """
+    Returns the entire SESSIONS dictionary from memory.
+    Useful for developers to inspect the current state of all sessions.
+    """
+    return {
+        "status": "OK",
+        "sessions_count": len(SESSIONS),
+        "data": SESSIONS
+    }
+
 @router.get("/{session_code}", tags=["Session"], summary="Get Session Details")
 def get_session_details(session_code: str):
+    """
+    This dynamic route will now only be matched if the path is not '/all-sessions'.
+    """
     if session_code not in SESSIONS:
         raise HTTPException(status_code=404, detail="Session not found")
 
@@ -68,8 +84,6 @@ def get_session_details(session_code: str):
         "data": SESSIONS[session_code]
     }
 
-# --- NEW ENDPOINT ADDED BELOW ---
-
 @router.delete("/{session_code}", tags=["Session"], summary="Delete a Session")
 async def delete_session(session_code: str):
     """
@@ -78,17 +92,10 @@ async def delete_session(session_code: str):
     if session_code not in SESSIONS:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    # 1. Notify all clients in the room that the session is ending.
-    #    This is crucial for a good user experience on the remote clients.
     await sio.emit("session_deleted", {"message": "The host has ended the session."}, room=session_code)
-    
-    # 2. Remove the session from the global dictionary in memory.
     SESSIONS.pop(session_code, None)
-    
-    # 3. Log the action on the server for debugging.
     print(f"Session '{session_code}' has been deleted.")
     
-    # 4. Return a success response to the client that made the DELETE request.
     return {
         "status": "OK",
         "message": f"Session '{session_code}' deleted successfully."

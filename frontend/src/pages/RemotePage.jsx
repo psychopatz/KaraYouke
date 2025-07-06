@@ -8,8 +8,6 @@ import socket from '../socket/socket';
 import { getSessionItem } from '../utils/sessionStorageUtils';
 import { searchYoutube } from '../api/youtubeApi';
 
-// REMOVED: No longer importing from queueApi
-// import { addSongToQueue, removeSongFromQueue } from '../api/queueApi';
 
 const PAGINATION_STEP = 5;
 const MAX_RESULTS = 20;

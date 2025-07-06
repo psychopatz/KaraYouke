@@ -19,9 +19,16 @@ const ScoreRoot = styled(Box)({
   color: 'white',
 });
 
-const BouncingAvatar = styled(Avatar)({ /* ... Same as your reference ... */ });
+// A placeholder for your BouncingAvatar if it has animations
+const BouncingAvatar = styled(Avatar)({
+  width: '10vw',
+  height: '10vw',
+  minWidth: '100px',
+  minHeight: '100px',
+  border: '4px solid white',
+});
 
-const ScoreDisplay = ({ user, onFinished }) => {
+const ScoreDisplay = ({ user, onCountUpFinished }) => {
   const [score, setScore] = useState(0);
   const [displayScore, setDisplayScore] = useState(0);
   const [message, setMessage] = useState('');
@@ -53,15 +60,16 @@ const ScoreDisplay = ({ user, onFinished }) => {
     }
   }, [score]);
 
-  // When the count-up is finished, wait a few seconds then call onFinished
+  // ✅ --- THE FIX IS HERE --- ✅
+  // When the count-up is finished, call the onCountUpFinished callback.
+  // The component no longer dismisses itself with a timer.
   useEffect(() => {
     if (score > 0 && displayScore === score) {
-      const timer = setTimeout(() => {
-        onFinished();
-      }, 5000); // Display score for 5 seconds
-      return () => clearTimeout(timer);
+      if (onCountUpFinished) {
+        onCountUpFinished();
+      }
     }
-  }, [displayScore, score, onFinished]);
+  }, [displayScore, score, onCountUpFinished]);
 
   return (
     <ScoreRoot>

@@ -33,7 +33,7 @@ const KaraokePlayer = ({ song, isPlaying, isLooping, showControls, onEnded, onEr
     <div style={PlayerWrapper}>
       <ReactPlayer
         // Using `src` as confirmed to be working for you
-        src={`https://www.youtube.com/watch?v=${song.song_id}`}
+        src={`https://www.youtube.com/watch?v=${song.song_id}`}  // ✅ Correct
         playing={isPlaying}
         loop={isLooping}
         controls={showControls}

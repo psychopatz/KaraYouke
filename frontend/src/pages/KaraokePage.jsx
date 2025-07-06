@@ -62,8 +62,11 @@ const KaraokePage = () => {
   const [users, setUsers] = useState([]);
   const [currentSong, setCurrentSong] = useState(DEFAULT_SONG_OBJECT);
   const [finishedSinger, setFinishedSinger] = useState(null);
-  const [isPlaying, setIsPlaying] = useState(false); // Start paused
+  const [isPlaying, setIsPlaying] = useState(true);
   const [message, setMessage] = useState(null);
+  // NEW STATE TO FORCE PLAYER RELOAD FOR RELIABLE AUTOPLAY
+  const [playerKey, setPlayerKey] = useState(Date.now());
+  
   const lastShownSongId = useRef(null);
   const [, playScoreSound] = useAudio('/Sounds/videokeScore.mp3');
   const songThatEnded = useRef(null);
@@ -90,9 +93,15 @@ const KaraokePage = () => {
     };
   }, [sessionCode]);
 
-  // Effect #2: Manages the current song and which message to display.
+  // Effect #2: Manages the current song, messages, and player re-rendering
   useEffect(() => {
     const activeSong = queue.length > 0 ? queue[0] : DEFAULT_SONG_OBJECT;
+    
+    // If the song ID changes, update the player key to force a re-mount
+    if (activeSong.song_id !== currentSong.song_id) {
+        setPlayerKey(Date.now());
+    }
+    
     setCurrentSong(activeSong);
 
     const isRealSong = activeSong.added_by !== 'system';
@@ -103,44 +112,51 @@ const KaraokePage = () => {
       setMessage({
         type: 'intro',
         title: sanitizeTitle(activeSong.title),
-        subtitle: `Sung by ${singer.name}`,
+        subtitle: `Sung by ${singer?.name}`,
         icon: '🎵',
-        duration: 5000, // Timed message
+        duration: 5000,
       });
       lastShownSongId.current = activeSong.song_id;
     } else if (!isRealSong && (!message || message.type !== 'welcome')) {
-      // Show permanent welcome message if queue is empty
       setMessage({ type: 'welcome', duration: null });
     }
-  }, [queue, users, message]);
+  }, [queue, users, message, currentSong]); 
 
-  // Effect #3: Controls ONLY the playing state. This is simple and reliable.
+  // Effect #3: Controls playing state based on whether score screen is active
   useEffect(() => {
-    // The player should be playing if there are NO active overlays (message or score).
-    setIsPlaying(!message && !finishedSinger);
-  }, [message, finishedSinger]);
-
+    setIsPlaying(!finishedSinger);
+  }, [finishedSinger]);
 
   // --- EVENT HANDLERS ---
   const handleSongEnded = () => {
-    if (currentSong?.added_by === 'system') return;
-
+    if (currentSong?.added_by === 'system') {
+        // If the default video loops, we reset the key to force it to restart properly
+        setPlayerKey(Date.now());
+        return;
+    }
     songThatEnded.current = currentSong;
     const singer = getUserData(currentSong?.added_by, users);
     setFinishedSinger(singer);
-
+  };
+  
+  const handleMessageFinished = () => {
+    setMessage(null);
+  };
+  
+  const handleScoreAnimationComplete = () => {
     playScoreSound(() => {
       const songToRemove = songThatEnded.current;
       if (hostUser && sessionCode && songToRemove) {
-        socket.emit('remove_song', { session_code: sessionCode, song_id: songToRemove.song_id, user_id: hostUser.id });
+        // Send `queue_id` to the backend to remove the correct song instance
+        socket.emit('remove_song', {
+          session_code: sessionCode,
+          queue_id: songToRemove.queue_id, 
+          user_id: songToRemove.added_by, // Send user who added for backend authorization check
+        });
       }
       setFinishedSinger(null);
       songThatEnded.current = null;
     });
-  };
-
-  const handleMessageFinished = () => {
-    setMessage(null); // This is called by timed messages to hide themselves.
   };
 
   const nowPlaying = queue.length > 0 ? queue[0] : null;
@@ -153,7 +169,6 @@ const KaraokePage = () => {
         <NowPlayingCard song={nowPlaying} user={nowPlayingUser} />
       </FixedNowPlayingWrapper>
 
-      {/* --- THIS IS THE FIX --- */}
       {/* Only show the small banner at the bottom-left if a real song is playing */}
       {currentSong && currentSong.song_id !== DEFAULT_VIDEO_ID && (
         <FixedBrandingWrapper>
@@ -168,6 +183,8 @@ const KaraokePage = () => {
       <ConnectedUsersBar users={users} />
 
       <KaraokePlayer
+        // Use the key to force a re-render when the song changes
+        key={playerKey} 
         song={currentSong}
         isPlaying={isPlaying}
         isLooping={currentSong.song_id === DEFAULT_VIDEO_ID}
@@ -176,7 +193,12 @@ const KaraokePage = () => {
         onError={(e) => console.error('[Player Callback] onError fired:', e)}
       />
 
-      {finishedSinger && <ScoreDisplay user={finishedSinger} />}
+      {finishedSinger && (
+        <ScoreDisplay
+          user={finishedSinger}
+          onCountUpFinished={handleScoreAnimationComplete}
+        />
+      )}
 
       <FullScreenMessage
         show={!!message}
