@@ -1,25 +1,29 @@
 # backend/app/main.py
 import os
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from socketio import ASGIApp
 from dotenv import load_dotenv
 
+# Load environment variables at the VERY TOP
+load_dotenv()
+
+# Now, we can safely import our application modules
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware # <--- RE-IMPORT THIS
+from socketio import ASGIApp
 from .api.youtube import router as youtube_router
 from .api.session import router as session_router
 from .api.user import router as user_router
 from .api.network import router as network_router
 from .sockets.socket_server import sio
 
-# Load environment variables from .env
-load_dotenv()
-
-# Read CORS origins from env
+# --- ✅ THIS IS THE CRITICAL FIX ---
+# Read the allowed origins from the environment variable for FastAPI
 origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 
 # Main FastAPI app
 fastapi_app = FastAPI()
 
+# Add the CORS middleware back to the FastAPI app
+# This handles CORS for all REST API routes (e.g., /api/session/create)
 fastapi_app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -27,14 +31,16 @@ fastapi_app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# ------------------------------------
 
-# Register API routes
+# Register API routes (this is unchanged)
 fastapi_app.include_router(youtube_router, prefix="/api/youtube")
 fastapi_app.include_router(session_router, prefix="/api/session")
 fastapi_app.include_router(user_router, prefix="/api/user")
 fastapi_app.include_router(network_router, prefix="/api/debug")
 
 # Socket.IO app (ASGI compatible)
+# The `sio` object already has its own CORS config for /socket.io/ routes
 socket_app = ASGIApp(sio, other_asgi_app=fastapi_app)
 
 # Export for ASGI
