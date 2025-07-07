@@ -25,3 +25,5 @@ pydantic
 aiofiles
 
 python-dotenv
+
+httpx

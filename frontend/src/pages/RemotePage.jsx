@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Box, Typography, Stack, FormControlLabel, Switch } from '@mui/material';
 import { styled } from '@mui/material/styles';
 
@@ -14,8 +14,7 @@ import { getSessionItem } from '../utils/sessionStorageUtils';
 import { searchYoutube } from '../api/youtubeApi';
 
 // --- Constants & Styled Components ---
-const PAGINATION_STEP = 5;
-const MAX_RESULTS = 20;
+const ITEMS_PER_PAGE = 10; // How many items to request per API call
 
 const RemotePageRoot = styled(Box)({
   minHeight: '100vh',
@@ -51,31 +50,29 @@ const RemotePage = () => {
   // --- State Management ---
   const [queue, setQueue] = useState([]);
   const [connectedUsers, setConnectedUsers] = useState([]);
-  const [searchResults, setSearchResults] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [limit, setLimit] = useState(PAGINATION_STEP);
-  const [hasMore, setHasMore] = useState(true);
   const [isPlaying, setIsPlaying] = useState(true);
   const [clientId, setClientId] = useState('');
-  const [showScore, setShowScore] = useState(true); // Session-wide setting, will be updated by server
+  const [showScore, setShowScore] = useState(true);
+
+  // --- Search and Pagination State ---
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const currentQueryRef = useRef(''); // Use a ref to hold the current query for "load more"
 
   // --- Memoized Values ---
   const session = useMemo(() => getSessionItem('kara_youke_session'), []);
   const currentUser = useMemo(() => session?.user, [session]);
-
-  // --- Derived State for Disabling Controls ---
-  const isPlayPauseDisabled = queue.length === 0;
-  const isNextDisabled = queue.length <= 1;
   
-  // --- Main Effect for Socket Communication ---
+  // --- Socket Effects ---
   useEffect(() => {
     if (!session?.code) return;
     
     const updateClientId = () => setClientId(socket.id || '');
     const handlePlayerStateUpdate = ({ isPlaying }) => setIsPlaying(isPlaying);
 
-    // This handler can receive the entire session object for a full state update
     const handleSessionUpdate = (sessionData) => {
         setQueue(sessionData.queue || []);
         setConnectedUsers(sessionData.users || []);
@@ -84,7 +81,6 @@ const RemotePage = () => {
         }
     };
     
-    // This handler listens for live changes to a single setting
     const handleSettingUpdate = ({ key, value }) => {
         if (key === 'showScore' && typeof value === 'boolean') {
             setShowScore(value);
@@ -92,8 +88,8 @@ const RemotePage = () => {
     };
 
     socket.on('connect', updateClientId);
-    socket.on('session_updated', handleSessionUpdate); // For full state sync
-    socket.on('setting_updated', handleSettingUpdate);   // For live setting changes
+    socket.on('session_updated', handleSessionUpdate);
+    socket.on('setting_updated', handleSettingUpdate);
     socket.on('player_state_updated', handlePlayerStateUpdate);
 
     // Get initial data on load
@@ -109,39 +105,81 @@ const RemotePage = () => {
     };
   }, [session]);
 
-  // --- Handlers ---
-  const fetchResults = useCallback(async (query, currentLimit) => {
-    if (!query.trim()) return;
+  // --- Handlers for New Pagination System ---
+  const handleSearch = useCallback(async () => {
+    if (!searchQuery.trim() || isLoading) return;
+    
+    currentQueryRef.current = searchQuery; // Store the query being searched
     setIsLoading(true);
+    setPage(1); // Reset to page 1 for a new search
+    
     try {
-      const data = await searchYoutube(query, currentLimit);
-      const formattedResults = data.results.map(item => ({ id: item.id, title: item.title, duration: item.duration, thumbnails: item.thumbnails }));
-      setSearchResults(formattedResults);
-      setHasMore(formattedResults.length < MAX_RESULTS && formattedResults.length > 0);
-    } catch (error) { console.error("Failed to fetch search results", error); setSearchResults([]); } finally { setIsLoading(false); }
-  }, []);
+      const data = await searchYoutube({ query: searchQuery, limit: ITEMS_PER_PAGE, page: 1 });
+      setSearchResults(data.results || []);
+      setHasMore(data.has_more || false);
+    } catch (error) {
+      console.error("Failed to fetch search results", error);
+      setSearchResults([]);
+      setHasMore(false);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [searchQuery, isLoading]);
 
-  const handleSearch = useCallback(() => { setLimit(PAGINATION_STEP); setSearchResults([]); fetchResults(searchQuery, PAGINATION_STEP); }, [searchQuery, fetchResults]);
-  const handleLoadMore = useCallback(() => { const newLimit = Math.min(limit + PAGINATION_STEP, MAX_RESULTS); setLimit(newLimit); fetchResults(searchQuery, newLimit); }, [limit, searchQuery, fetchResults]);
-  
+  const handleLoadMore = useCallback(async () => {
+    if (isLoading || !hasMore) return;
+    
+    const nextPage = page + 1;
+    setIsLoading(true);
+
+    try {
+      const data = await searchYoutube({ query: currentQueryRef.current, limit: ITEMS_PER_PAGE, page: nextPage });
+      // Append new results to the existing list
+      setSearchResults(prevResults => [...prevResults, ...(data.results || [])]);
+      setHasMore(data.has_more || false);
+      setPage(nextPage); // Only update the page number on success
+    } catch (error) {
+      console.error("Failed to fetch more results", error);
+      setHasMore(false);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isLoading, hasMore, page]);
+
+  // --- Other Handlers ---
   const handleAddSong = useCallback((song) => {
     const newSongEntry = { song_id: song.id, title: song.title, duration: song.duration, added_by: currentUser.id, thumbnails: song.thumbnails };
     socket.emit('add_song', { session_code: session.code, song: newSongEntry });
-    setSearchResults([]); setSearchQuery('');
+    // Clear the search query and results to hide the list
+    setSearchQuery('');
+    setSearchResults([]);
+    setHasMore(false);
   }, [currentUser, session]);
 
-  const handleRemoveSong = useCallback((queueId) => { socket.emit('remove_song', { session_code: session.code, queue_id: queueId, user_id: currentUser.id }); }, [currentUser, session]);
+  const handleRemoveSong = useCallback((queueId) => { 
+    socket.emit('remove_song', { session_code: session.code, queue_id: queueId, user_id: currentUser.id }); 
+  }, [currentUser, session]);
   
-  const handleTogglePlayPause = () => { socket.emit('player_control', { session_code: session.code, action: 'toggle_play_pause', user: { id: currentUser.id, name: currentUser.name }}); };
-  const handleNextSong = () => { socket.emit('player_control', { session_code: session.code, action: 'next_song', user: { id: currentUser.id, name: currentUser.name }}); };
+  const handleTogglePlayPause = () => { 
+    socket.emit('player_control', { session_code: session.code, action: 'toggle_play_pause', user: { id: currentUser.id, name: currentUser.name }}); 
+  };
+  
+  const handleNextSong = () => { 
+    socket.emit('player_control', { session_code: session.code, action: 'next_song', user: { id: currentUser.id, name: currentUser.name }}); 
+  };
   
   const handleShowScoreChange = (event) => {
     const newShowScoreValue = event.target.checked;
-    setShowScore(newShowScoreValue); // Optimistic UI update
+    // Note: We don't need to optimistically update the state here, 
+    // as the 'session_updated' or 'setting_updated' event from the server will do it.
     socket.emit('change_setting', { session_code: session.code, key: 'showScore', value: newShowScoreValue });
   };
   
   if (!currentUser) return null;
+
+  // --- Derived State for Disabling Controls ---
+  const isPlayPauseDisabled = queue.length === 0;
+  const isNextDisabled = queue.length <= 1;
 
   // --- Render ---
   return (
@@ -163,17 +201,33 @@ const RemotePage = () => {
 
           <Box sx={{ display: 'flex', justifyContent: 'center', my: 2, alignItems: 'center' }}>
             <FormControlLabel
-              control={<Switch checked={showScore} onChange={handleShowScoreChange} color="primary" />}
+              control={<Switch checked={showScore} onChange={handleShowScoreChange} />}
               label="Show Score For All Singers"
             />
           </Box>
 
           <Box mt={2}>
-            <SearchBar query={searchQuery} onQueryChange={setSearchQuery} onSearch={handleSearch} isLoading={isLoading} />
-            <SearchResults results={searchResults} onAddSong={handleAddSong} isLoading={isLoading} loadMore={handleLoadMore} hasMore={hasMore} />
+            <SearchBar 
+              query={searchQuery} 
+              onQueryChange={setSearchQuery} 
+              onSearch={handleSearch} 
+              isLoading={isLoading} 
+            />
+            <SearchResults 
+              results={searchResults} 
+              onAddSong={handleAddSong} 
+              isLoading={isLoading} 
+              loadMore={handleLoadMore} 
+              hasMore={hasMore} 
+            />
           </Box>
 
-          <QueueList queue={queue} currentUser={currentUser} onRemoveSong={handleRemoveSong} connectedUsers={connectedUsers} />
+          <QueueList 
+            queue={queue} 
+            currentUser={currentUser} 
+            onRemoveSong={handleRemoveSong} 
+            connectedUsers={connectedUsers} 
+          />
         </ContentContainer>
       </RemotePageRoot>
       
