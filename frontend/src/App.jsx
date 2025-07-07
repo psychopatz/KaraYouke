@@ -1,5 +1,4 @@
 // src/App.jsx
-
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
@@ -14,18 +13,17 @@ import RemoteRouteGuard from './layout/RemoteRouteGuard';
 import RemotePage from './pages/RemotePage'; 
 import KaraokePage from './pages/KaraokePage';
 import VersionDisplay from './components/VersionDisplay';
-
-
+import PageTitleHandler from './components/PageTitleHandler'; // ✅ Import this
 
 // A dark theme for our Karaoke App
 const darkTheme = createTheme({
   palette: {
     mode: 'dark',
     primary: {
-      main: '#1DB954', // A Spotify-like green for primary actions
+      main: '#1DB954',
     },
     secondary: {
-      main: '#FFFFFF', // White for secondary actions/text
+      main: '#FFFFFF',
     },
     background: {
       default: '#121212',
@@ -35,7 +33,7 @@ const darkTheme = createTheme({
   typography: {
     fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
     button: {
-      textTransform: 'none', // Buttons will use normal case, not UPPERCASE
+      textTransform: 'none',
       fontWeight: '600',
     }
   },
@@ -44,39 +42,31 @@ const darkTheme = createTheme({
   }
 });
 
-
 function App() {
   return (
     <ThemeProvider theme={darkTheme}>
       <CssBaseline />
       <Router>
+        <PageTitleHandler /> {/* ✅ Handles page title updates */}
         <Routes>
-          {/* --- Public Routes --- */}
-          {/* This route is for creating a profile. It MUST be outside the check. */}
+          {/* Public Route */}
           <Route path="/create-profile" element={<ProfileCreationPage />} />
 
-
-
-
-          {/* --- "Protected" Routes --- */}
-          {/* All routes inside here will first pass through ProfileCheckLayout. */}
-          {/* If no profile exists, the user will be redirected to /create-profile. */}
-          {/* If a profile exists, the <Outlet /> in the layout will render the correct page. */}
+          {/* Routes requiring profile check */}
           <Route element={<ProfileCheckLayout />}>
             <Route path="/" element={<LandingPage />} />
             <Route path="/create-room" element={<HostPage />} />
             <Route path="/join-room/:sessionCode?" element={<JoinRoomPage />} />
             <Route path="/karaoke" element={<KaraokePage />} />
 
-            {/* NEW: NESTED ROUTE FOR REMOTE */}
+            {/* Remote route with guard */}
             <Route element={<RemoteRouteGuard />}>
               <Route path="/remote" element={<RemotePage />} />
             </Route>
           </Route>
-
         </Routes>
       </Router>
-       <VersionDisplay />
+      <VersionDisplay />
     </ThemeProvider>
   );
 }
