@@ -13,11 +13,13 @@ async def connect(sid, environ):
 
 @sio.event
 async def disconnect(sid):
-    """Handles a client disconnection."""
+    """Handles a client disconnection and cleans up the session."""
     print(f"Socket disconnected: {sid}")
     
     if sid in connected_clients:
-        session_info = connected_clients[sid]
+        session_info = connected_clients.pop(sid, None)
+        if not session_info: return # Exit if no info was found
+
         code = session_info.get("session_code")
         user_id = session_info.get("user_id")
 
@@ -34,54 +36,40 @@ async def disconnect(sid):
             elif user_id:
                 # Remove the user from the session's user list
                 SESSIONS[code]["users"] = [u for u in SESSIONS[code]["users"] if u.get("id") != user_id]
-                # Notify the room about the updated user list
-                await sio.emit("users_updated", SESSIONS[code]["users"], room=code)
+                # Notify the entire room about the updated session state
+                await sio.emit("session_updated", SESSIONS[code], room=code)
                 print(f"User {user_id} removed from session {code} on disconnect.")
 
-        # Clean up the client tracking dictionary
-        del connected_clients[sid]
 
 @sio.event
 async def register_host(sid, session_code):
-    """
-    The host client calls this event after creating a session or reconnecting.
-    This officially marks the client as the session's host.
-    """
+    """The host client calls this to be marked as the session's host."""
     if session_code in SESSIONS:
         SESSIONS[session_code]['host_sid'] = sid
         await sio.enter_room(sid, session_code)
-        # Store tracking info for this client
         connected_clients[sid] = {"session_code": session_code, "user_id": "host"}
         print(f"Host registered with sid {sid} for session {session_code}")
-    else:
-        print(f"Warning: Host {sid} tried to register for non-existent session {session_code}")
-        # Optionally, tell the client the session is invalid
-        await sio.emit("session_invalid", to=sid)
 
 
 @sio.event
 async def join_room(sid, session_code):
-    """A remote user joins a room."""
+    """A remote user joins a room. They will request the full state separately."""
     await sio.enter_room(sid, session_code)
-    # Store minimal tracking info; user_id will be added by register_user
     connected_clients[sid] = {"session_code": session_code, "user_id": None}
     print(f"Client {sid} joined room: {session_code}")
 
-    if session_code in SESSIONS:
-        # When a new remote joins, send them the full current user list
-        await sio.emit("users_updated", SESSIONS[session_code]["users"], to=sid)
 
 @sio.event
-async def get_session_info(sid, session_code):
+async def get_full_session(sid, session_code):
     """
-    On request from any client, send them the current state of the session.
+    This is the primary way for a client to get the full, current state of a session.
+    It's called by the frontend right after it mounts to solve the race condition.
     """
-    print(f"Client {sid} requested initial info for session {session_code}")
+    print(f"Client {sid} requested full session info for {session_code}")
     if session_code in SESSIONS:
-        session_data = SESSIONS[session_code]
         # Emit the data only TO the requesting client.
-        await sio.emit("queue_updated", session_data.get("queue", []), to=sid)
-        await sio.emit("users_updated", session_data.get("users", []), to=sid)
+        await sio.emit("session_updated", SESSIONS[session_code], to=sid)
+
 
 @sio.event
 async def register_user(sid, data):
@@ -91,34 +79,41 @@ async def register_user(sid, data):
         session_code = connected_clients[sid].get("session_code")
         print(f"User {data.get('id')} registered on socket {sid} for session {session_code}")
         
-        # After a user is fully registered, broadcast the updated user list to everyone
+        # After a user is fully registered, broadcast the updated session state to everyone
         if session_code and session_code in SESSIONS:
-             await sio.emit("users_updated", SESSIONS[session_code]["users"], room=session_code)
+             await sio.emit("session_updated", SESSIONS[session_code], room=session_code)
 
-# (The rest of your event handlers like logout_user and kick_user remain the same)
+
 @sio.event
 async def logout_user(sid, data):
     session_code = data.get("session_code")
     user_id = data.get("id")
     if session_code in SESSIONS:
         SESSIONS[session_code]["users"] = [u for u in SESSIONS[session_code]["users"] if u["id"] != user_id]
-        await sio.emit("users_updated", SESSIONS[session_code]["users"], room=session_code)
+        await sio.emit("session_updated", SESSIONS[session_code], room=session_code)
     await sio.leave_room(sid, session_code)
     connected_clients.pop(sid, None)
     print(f"User {user_id} logged out from session {session_code}")
 
+
 @sio.event
 async def kick_user(sid, data):
     session_code = data.get("session_code")
-    user_id = data.get("id")
+    user_id_to_kick = data.get("id")
     sid_to_kick = None
     for s, info in connected_clients.items():
-        if info.get("user_id") == user_id and info.get("session_code") == session_code:
+        if info.get("user_id") == user_id_to_kick and info.get("session_code") == session_code:
             sid_to_kick = s
             break
+            
     if sid_to_kick:
-        await logout_user(sid_to_kick, {"session_code": session_code, "id": user_id})
+        await sio.emit("kicked", {"message": "The host has removed you from the session."}, to=sid_to_kick)
         await sio.disconnect(sid_to_kick)
-        print(f"[kick_user] Kicked user {user_id} with sid {sid_to_kick}")
+        print(f"[kick_user] Kicked user {user_id_to_kick} with sid {sid_to_kick}")
     else:
-        print(f"[kick_user] Could not find sid for user {user_id}")
+        # If the user wasn't found in connected_clients (e.g., disconnected already),
+        # still ensure they are removed from the session user list and broadcast the update.
+        if session_code in SESSIONS:
+             SESSIONS[session_code]["users"] = [u for u in SESSIONS[session_code]["users"] if u.get("id") != user_id_to_kick]
+             await sio.emit("session_updated", SESSIONS[session_code], room=session_code)
+        print(f"[kick_user] Could not find sid for user {user_id_to_kick}, but ensured they were removed from user list.")

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Box, Typography, Stack, FormControlLabel, Switch } from '@mui/material';
+import { Box, Typography, Stack, FormControlLabel, Switch, Button } from '@mui/material';
 import { styled } from '@mui/material/styles';
+import PlayCircleFilledWhiteIcon from '@mui/icons-material/PlayCircleFilledWhite';
 
 // Import Components
 import KaraokeControls from '../components/KaraokeControls';
@@ -14,7 +15,7 @@ import { getSessionItem } from '../utils/sessionStorageUtils';
 import { searchYoutube } from '../api/youtubeApi';
 
 // --- Constants & Styled Components ---
-const ITEMS_PER_PAGE = 10; // How many items to request per API call
+const ITEMS_PER_PAGE = 10;
 
 const RemotePageRoot = styled(Box)({
   minHeight: '100vh',
@@ -53,6 +54,7 @@ const RemotePage = () => {
   const [isPlaying, setIsPlaying] = useState(true);
   const [clientId, setClientId] = useState('');
   const [showScore, setShowScore] = useState(true);
+  const [isSessionStarted, setIsSessionStarted] = useState(false); // Master state for UI mode
 
   // --- Search and Pagination State ---
   const [searchQuery, setSearchQuery] = useState('');
@@ -60,7 +62,7 @@ const RemotePage = () => {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const currentQueryRef = useRef(''); // Use a ref to hold the current query for "load more"
+  const currentQueryRef = useRef('');
 
   // --- Memoized Values ---
   const session = useMemo(() => getSessionItem('kara_youke_session'), []);
@@ -73,16 +75,19 @@ const RemotePage = () => {
     const updateClientId = () => setClientId(socket.id || '');
     const handlePlayerStateUpdate = ({ isPlaying }) => setIsPlaying(isPlaying);
 
+    // This single handler is the source of truth for the component's state.
     const handleSessionUpdate = (sessionData) => {
         setQueue(sessionData.queue || []);
         setConnectedUsers(sessionData.users || []);
-        if (sessionData.settings && typeof sessionData.settings.showScore === 'boolean') {
-            setShowScore(sessionData.settings.showScore);
+        if (sessionData.settings) {
+            setShowScore(sessionData.settings.showScore ?? true);
         }
+        // Set the session started state directly from the server's truth.
+        setIsSessionStarted(sessionData.is_started || false);
     };
     
     const handleSettingUpdate = ({ key, value }) => {
-        if (key === 'showScore' && typeof value === 'boolean') {
+        if (key === 'showScore') {
             setShowScore(value);
         }
     };
@@ -92,7 +97,8 @@ const RemotePage = () => {
     socket.on('setting_updated', handleSettingUpdate);
     socket.on('player_state_updated', handlePlayerStateUpdate);
 
-    // Get initial data on load
+    // This is the crucial part. After mounting and setting listeners, we ASK for the state.
+    // This solves the race condition for newly joining clients.
     updateClientId();
     socket.emit('get_full_session', session.code);
     socket.emit('get_player_state', session.code);
@@ -105,22 +111,18 @@ const RemotePage = () => {
     };
   }, [session]);
 
-  // --- Handlers for New Pagination System ---
+  // --- Handlers ---
   const handleSearch = useCallback(async () => {
     if (!searchQuery.trim() || isLoading) return;
-    
-    currentQueryRef.current = searchQuery; // Store the query being searched
+    currentQueryRef.current = searchQuery;
     setIsLoading(true);
-    setPage(1); // Reset to page 1 for a new search
-    
+    setPage(1);
     try {
       const data = await searchYoutube({ query: searchQuery, limit: ITEMS_PER_PAGE, page: 1 });
       setSearchResults(data.results || []);
       setHasMore(data.has_more || false);
     } catch (error) {
       console.error("Failed to fetch search results", error);
-      setSearchResults([]);
-      setHasMore(false);
     } finally {
       setIsLoading(false);
     }
@@ -128,32 +130,25 @@ const RemotePage = () => {
 
   const handleLoadMore = useCallback(async () => {
     if (isLoading || !hasMore) return;
-    
     const nextPage = page + 1;
     setIsLoading(true);
-
     try {
       const data = await searchYoutube({ query: currentQueryRef.current, limit: ITEMS_PER_PAGE, page: nextPage });
-      // Append new results to the existing list
       setSearchResults(prevResults => [...prevResults, ...(data.results || [])]);
       setHasMore(data.has_more || false);
-      setPage(nextPage); // Only update the page number on success
+      setPage(nextPage);
     } catch (error) {
       console.error("Failed to fetch more results", error);
-      setHasMore(false);
     } finally {
       setIsLoading(false);
     }
   }, [isLoading, hasMore, page]);
 
-  // --- Other Handlers ---
   const handleAddSong = useCallback((song) => {
     const newSongEntry = { song_id: song.id, title: song.title, duration: song.duration, added_by: currentUser.id, thumbnails: song.thumbnails };
     socket.emit('add_song', { session_code: session.code, song: newSongEntry });
-    // Clear the search query and results to hide the list
     setSearchQuery('');
     setSearchResults([]);
-    setHasMore(false);
   }, [currentUser, session]);
 
   const handleRemoveSong = useCallback((queueId) => { 
@@ -169,65 +164,82 @@ const RemotePage = () => {
   };
   
   const handleShowScoreChange = (event) => {
-    const newShowScoreValue = event.target.checked;
-    // Note: We don't need to optimistically update the state here, 
-    // as the 'session_updated' or 'setting_updated' event from the server will do it.
-    socket.emit('change_setting', { session_code: session.code, key: 'showScore', value: newShowScoreValue });
+    socket.emit('change_setting', { session_code: session.code, key: 'showScore', value: event.target.checked });
+  };
+  
+  const handleRequestStartKaraoke = () => {
+    socket.emit('remote_wants_to_start', { session_code: session.code });
   };
   
   if (!currentUser) return null;
 
-  // --- Derived State for Disabling Controls ---
   const isPlayPauseDisabled = queue.length === 0;
   const isNextDisabled = queue.length <= 1;
 
-  // --- Render ---
   return (
     <>
       <RemotePageRoot>
         <ContentContainer>
-          <Stack spacing={2} sx={{ textAlign: 'center' }}>
+          <Stack spacing={2} sx={{ textAlign: 'center', mb: 2 }}>
             <Typography variant="h4" component="h1">Welcome, {currentUser.name}!</Typography>
             <Typography color="text.secondary" gutterBottom>Session Code: <strong>{session.code}</strong></Typography>
           </Stack>
           
-          <KaraokeControls
-            isPlaying={isPlaying}
-            onPlayPause={handleTogglePlayPause}
-            onNext={handleNextSong}
-            isPlayPauseDisabled={isPlayPauseDisabled}
-            isNextDisabled={isNextDisabled}
-          />
+          {/* --- UI SPLIT BASED ON SERVER STATE --- */}
+          {!isSessionStarted ? (
+            // --- UI BEFORE SESSION STARTS (Lobby View) ---
+            <Box sx={{ my: 4, display: 'flex', justifyContent: 'center' }}>
+              <Button
+                  variant="contained"
+                  size="large"
+                  onClick={handleRequestStartKaraoke}
+                  startIcon={<PlayCircleFilledWhiteIcon />}
+                  sx={{ padding: '15px 30px', fontSize: '1.2rem' }}
+              >
+                  Start KaraYouke🎤🎶
+              </Button>
+            </Box>
+          ) : (
+            // --- UI AFTER SESSION STARTS (Full Remote View) ---
+            <>
+              <KaraokeControls
+                isPlaying={isPlaying}
+                onPlayPause={handleTogglePlayPause}
+                onNext={handleNextSong}
+                isPlayPauseDisabled={isPlayPauseDisabled}
+                isNextDisabled={isNextDisabled}
+              />
+              <Box sx={{ display: 'flex', justifyContent: 'center', my: 2, alignItems: 'center' }}>
+                <FormControlLabel
+                  control={<Switch checked={showScore} onChange={handleShowScoreChange} />}
+                  label="Show Score For All Singers"
+                />
+              </Box>
 
-          <Box sx={{ display: 'flex', justifyContent: 'center', my: 2, alignItems: 'center' }}>
-            <FormControlLabel
-              control={<Switch checked={showScore} onChange={handleShowScoreChange} />}
-              label="Show Score For All Singers"
-            />
-          </Box>
+              <Box mt={2}>
+                <SearchBar 
+                  query={searchQuery} 
+                  onQueryChange={setSearchQuery} 
+                  onSearch={handleSearch} 
+                  isLoading={isLoading} 
+                />
+                <SearchResults 
+                  results={searchResults} 
+                  onAddSong={handleAddSong} 
+                  isLoading={isLoading} 
+                  loadMore={handleLoadMore} 
+                  hasMore={hasMore} 
+                />
+              </Box>
 
-          <Box mt={2}>
-            <SearchBar 
-              query={searchQuery} 
-              onQueryChange={setSearchQuery} 
-              onSearch={handleSearch} 
-              isLoading={isLoading} 
-            />
-            <SearchResults 
-              results={searchResults} 
-              onAddSong={handleAddSong} 
-              isLoading={isLoading} 
-              loadMore={handleLoadMore} 
-              hasMore={hasMore} 
-            />
-          </Box>
-
-          <QueueList 
-            queue={queue} 
-            currentUser={currentUser} 
-            onRemoveSong={handleRemoveSong} 
-            connectedUsers={connectedUsers} 
-          />
+              <QueueList 
+                queue={queue} 
+                currentUser={currentUser} 
+                onRemoveSong={handleRemoveSong} 
+                connectedUsers={connectedUsers} 
+              />
+            </>
+          )}
         </ContentContainer>
       </RemotePageRoot>
       

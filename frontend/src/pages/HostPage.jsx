@@ -21,7 +21,7 @@ import VisibilityOff from '@mui/icons-material/VisibilityOff';
 
 // API and Utility Imports
 import { createSession, deleteSession, validateSession } from '../api/sessionApi';
-import { joinSession } from '../api/userApi'; // Correctly imported from userApi
+import { joinSession } from '../api/userApi';
 import { setLocalItem, getLocalItem, removeLocalItem } from '../utils/localStorageUtils';
 import { setSessionItem } from '../utils/sessionStorageUtils';
 
@@ -33,7 +33,7 @@ import socket from '../socket/socket';
 // Constants
 const HOST_SESSION_KEY = 'kara_youke_host_session';
 
-// --- Styled Components ---
+// --- Styled Components (Unchanged) ---
 const HostPageRoot = styled(Box)({
   minHeight: '100vh',
   width: '100%',
@@ -81,34 +81,62 @@ const HostPage = () => {
   
   const hostUser = useMemo(() => getLocalItem('kara_youke_user'), []);
 
-  // Socket effect (unchanged)
+  // --- MODIFIED: `handleStartKaraoke` now emits an event ---
+  // It's defined here so it can be used in the useEffect below.
+  const handleStartKaraoke = useCallback(() => {
+    if (sessionCode) {
+      // Announce to all remotes that the session is starting.
+      socket.emit('host_started_session', { session_code: sessionCode });
+      
+      // Store session info and navigate.
+      setSessionItem('kara_youke_session', { code: sessionCode, role: 'host' });
+      navigate(`/karaoke`);
+    }
+  }, [navigate, sessionCode]); // Dependencies for useCallback
+
+
+  // --- MODIFIED: Socket useEffect now listens for the remote start command ---
   useEffect(() => {
     if (!sessionCode) return;
+
     const handleSessionUpdate = (sessionData) => {
-        if (sessionData && Array.isArray(sessionData.users)) {
-            setConnectedUsers(sessionData.users);
-        }
+      if (sessionData && Array.isArray(sessionData.users)) {
+        setConnectedUsers(sessionData.users);
+      }
     };
     const handleUsersUpdate = (users) => {
-        if (Array.isArray(users)) {
-            setConnectedUsers(users);
-        }
+      if (Array.isArray(users)) {
+        setConnectedUsers(users);
+      }
     };
+    
+    // --- NEW: This handler listens for the "start" command from any remote ---
+    const handleStartFromRemote = () => {
+        console.log("Received command from remote to start session.");
+        // We call the memoized handleStartKaraoke function.
+        handleStartKaraoke();
+    };
+
     socket.on('session_updated', handleSessionUpdate);
     socket.on('users_updated', handleUsersUpdate);
-    if(socket.connected) {
-        socket.emit('get_full_session', sessionCode);
-    } else {
-        socket.once('connect', () => {
-            socket.emit('get_full_session', sessionCode);
-        });
-    }
-    return () => {
-        socket.off('session_updated', handleSessionUpdate);
-        socket.off('users_updated', handleUsersUpdate);
-    };
-  }, [sessionCode]);
+    socket.on('start_session_from_remote', handleStartFromRemote); // <-- Attach the new listener
 
+    if (socket.connected) {
+      socket.emit('get_full_session', sessionCode);
+    } else {
+      socket.once('connect', () => {
+        socket.emit('get_full_session', sessionCode);
+      });
+    }
+
+    return () => {
+      socket.off('session_updated', handleSessionUpdate);
+      socket.off('users_updated', handleUsersUpdate);
+      socket.off('start_session_from_remote', handleStartFromRemote); // <-- Detach the listener on cleanup
+    };
+  }, [sessionCode, handleStartKaraoke]); // <-- Add handleStartKaraoke as a dependency
+
+  // registerAsHost and session restoration effect (unchanged)
   const registerAsHost = useCallback((code) => {
     if (!code) return;
     const doRegister = () => {
@@ -122,7 +150,6 @@ const HostPage = () => {
     }
   }, []);
 
-  // Session restoration effect (unchanged)
   useEffect(() => {
     const attemptRestoreSession = async () => {
       const savedSession = getLocalItem(HOST_SESSION_KEY);
@@ -141,7 +168,7 @@ const HostPage = () => {
   }, [registerAsHost]);
 
 
-  // --- MODIFIED: `handleCreateSession` now sends password on join ---
+  // handleCreateSession (unchanged)
   const handleCreateSession = async () => {
     setIsLoading(true);
     setError('');
@@ -158,14 +185,11 @@ const HostPage = () => {
         const newSessionCode = sessionData.session_code;
         const hostUserEntry = { id: hostUser.id, name: hostUser.name, avatarBase64: hostUser.avatarBase64 };
         
-        // --- THIS IS THE FIX ---
-        // The host must provide the password to join their own protected session.
         await joinSession({
           session_code: newSessionCode,
-          password: password || null, // Add the password here!
+          password: password || null,
           ...hostUserEntry
         });
-        // --- END FIX ---
         
         setSessionCode(newSessionCode);
         setLocalItem(HOST_SESSION_KEY, { code: newSessionCode, role: 'host', password: password || null });
@@ -177,7 +201,6 @@ const HostPage = () => {
       }
     } catch (err) {
       console.error("Error creating session:", err);
-      // Make the error message more user-friendly
       const errorDetail = err.response?.data?.detail || 'Please try again.';
       setError(`Could not create session. ${errorDetail}`);
     } finally {
@@ -185,7 +208,7 @@ const HostPage = () => {
     }
   };
 
-  // Unchanged functions below...
+  // handleRegenerateRoom (unchanged)
   const handleRegenerateRoom = async () => {
     if (!sessionCode) return;
     setIsLoading(true);
@@ -197,13 +220,6 @@ const HostPage = () => {
       setError("Could not regenerate room. Please try again.");
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleStartKaraoke = () => {
-    if (sessionCode) {
-      setSessionItem('kara_youke_session', { code: sessionCode, role: 'host' });
-      navigate(`/karaoke`);
     }
   };
 
@@ -295,7 +311,10 @@ const HostPage = () => {
             <ConnectedUsersList users={connectedUsers} hostId={hostUser?.id} />
 
             <Button
-              variant="contained" color="primary" size="large" onClick={handleStartKaraoke} disabled={!hasRemotes || isLoading}
+              variant="contained" color="primary" size="large" 
+              // The onClick handler now points to our single, reliable function
+              onClick={handleStartKaraoke} 
+              disabled={!hasRemotes || isLoading}
               startIcon={<PlayCircleFilledWhiteIcon />}
               sx={{ padding: '15px 30px', fontSize: '1.2rem', marginTop: '1rem' }}
             >
