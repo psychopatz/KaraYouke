@@ -70,7 +70,7 @@ const JoinRoomPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
   const [isPasswordRequired, setIsPasswordRequired] = useState(false);
-  const [isCodeValid, setIsCodeValid] = useState(false); // NEW: Track if the code itself is valid
+  const [isCodeValid, setIsCodeValid] = useState(false);
   const [apiMessage, setApiMessage] = useState({ type: '', text: '' });
   const [isScannerOpen, setScannerOpen] = useState(false);
 
@@ -80,9 +80,7 @@ const JoinRoomPage = () => {
     }
   }, [urlSessionCode]);
 
-  // --- OPTIMIZATION: This effect now ONLY runs when the code is 5 characters long ---
   useEffect(() => {
-    // Clear state if code is not 5 characters long
     if (code.length < 5) {
       setIsCodeValid(false);
       setIsPasswordRequired(false);
@@ -92,7 +90,7 @@ const JoinRoomPage = () => {
     
     const validateCode = async () => {
       setIsValidating(true);
-      setIsPasswordRequired(false); // Reset while validating
+      setIsPasswordRequired(false);
       setApiMessage({ type: '', text: '' });
 
       try {
@@ -116,16 +114,25 @@ const JoinRoomPage = () => {
     };
 
     validateCode();
-  }, [code]); // This effect is now perfectly efficient
+  }, [code]);
+
 
   const onScanSuccess = (decodedText) => {
     setScannerOpen(false);
-    // Robustly find a 5-character alphanumeric code in the scanned text
-    const match = decodedText.match(/[a-zA-Z0-9]{5}/);
-    if (match) {
-      setCode(match[0].toUpperCase());
+
+    // To make the code agnostic to the domain, we find the last non-empty segment of the URL path.
+    // This correctly extracts 'E4M7D' from '.../join-room/E4M7D' or '.../join-room/E4M7D/'
+    const lastSegment = decodedText.split('/').filter(segment => segment).pop();
+
+    // We assume the last segment is the session code.
+    // Let's validate it's in the expected 5-character alphanumeric format.
+    if (lastSegment && /^[a-zA-Z0-9]{5}$/.test(lastSegment)) {
+      setCode(lastSegment.toUpperCase());
     } else {
-      setApiMessage({ type: 'error', text: 'Scanned QR code seems invalid.' });
+      setApiMessage({
+        type: 'error',
+        text: 'Invalid QR Code. Could not find a valid session code.'
+      });
     }
   };
 
@@ -167,12 +174,11 @@ const JoinRoomPage = () => {
     }
   };
 
-  // --- OPTIMIZATION: Updated button disabled logic ---
   const isJoinButtonDisabled =
-    !isCodeValid || // Must have a valid code
-    isLoading || // Disabled while submitting
-    isValidating || // Disabled while checking the code
-    (isPasswordRequired && !password); // Disabled if password is required but not entered
+    !isCodeValid ||
+    isLoading ||
+    isValidating ||
+    (isPasswordRequired && !password);
 
   return (
     <JoinRoomRoot>
